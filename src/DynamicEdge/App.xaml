@@ -1,0 +1,66 @@
+<Application x:Class="DynamicEdge.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+  <Application.Resources>
+    <SolidColorBrush x:Key="CapsuleBg" Color="#F2000000"/>
+    <SolidColorBrush x:Key="CapsuleBorder" Color="#26FFFFFF"/>
+    <SolidColorBrush x:Key="FgBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="Fg2Brush" Color="#B3FFFFFF"/>
+    <SolidColorBrush x:Key="ChipBg" Color="#1FFFFFFF"/>
+    <SolidColorBrush x:Key="ChipHoverBrush" Color="#33FFFFFF"/>
+    <SolidColorBrush x:Key="TrackBrush" Color="#26FFFFFF"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#FF4CC2FF"/>
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <Style x:Key="IconBtn" TargetType="Button">
+      <Setter Property="Foreground" Value="{DynamicResource FgBrush}"/>
+      <Setter Property="FontFamily" Value="{StaticResource IconFont}"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Width" Value="36"/>
+      <Setter Property="Height" Value="36"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" CornerRadius="18" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+              <Border.RenderTransform><ScaleTransform x:Name="Sc"/></Border.RenderTransform>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ChipHoverBrush}"/></Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Sc" Property="ScaleX" Value="0.88"/>
+                <Setter TargetName="Sc" Property="ScaleY" Value="0.88"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ChipBtn" TargetType="Button">
+      <Setter Property="Foreground" Value="{DynamicResource FgBrush}"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Padding" Value="10,5"/>
+      <Setter Property="Margin" Value="3,0,0,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" CornerRadius="10" Background="{DynamicResource ChipBg}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource ChipHoverBrush}"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.7"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Application.Resources>
+</Application>
