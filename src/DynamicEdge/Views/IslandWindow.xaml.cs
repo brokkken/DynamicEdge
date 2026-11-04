@@ -286,6 +286,8 @@ public partial class IslandWindow : Window
 
     (double, double) ExpandedSize()
     {
+        // Collapsed-элемент измеряется как 0×0, поэтому для замера делаем его Hidden (он занимает место, но не рисуется)
+        if (ExpLayer.Visibility == Visibility.Collapsed) ExpLayer.Visibility = Visibility.Hidden;
         ExpLayer.Measure(new Size(408, double.PositiveInfinity));
         return (440, Math.Max(80, ExpLayer.DesiredSize.Height + 36));
     }
