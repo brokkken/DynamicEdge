@@ -2,7 +2,7 @@
   Собирает Dynamic Edge и упаковывает в подписанный MSIX.
   Требуется: Windows 10/11, .NET 10 SDK, Windows SDK (makeappx/signtool — есть в Visual Studio / Windows SDK).
   Запуск:  powershell -ExecutionPolicy Bypass -File build\package.ps1
-  Результат: artifacts\DynamicEdge.msix, artifacts\DynamicEdge.cer, artifacts\install.ps1
+  Результат: artifacts\DynamicEdge-Setup.exe (установщик), DynamicEdge.msix, DynamicEdge.cer, install.ps1
 #>
 param([string]$Version = "1.0.0.0")
 $ErrorActionPreference = "Stop"
@@ -51,6 +51,15 @@ if ($LASTEXITCODE) { throw "signtool failed" }
 Remove-Item $pfx
 Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -ErrorAction SilentlyContinue
 Copy-Item "$PSScriptRoot\install.ps1" $art
+
+Write-Host "==> Inno Setup (DynamicEdge-Setup.exe)" -ForegroundColor Cyan
+$iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+if (Test-Path $iscc) {
+    & $iscc "/DAppVersion=$Version" "/DArtDir=$art" "$PSScriptRoot\installer.iss"
+    if ($LASTEXITCODE) { throw "Inno Setup failed" }
+} else {
+    Write-Warning "Inno Setup 6 не найден — DynamicEdge-Setup.exe не создан (установите: winget install JRSoftware.InnoSetup)."
+}
 Remove-Item $layout -Recurse -Force
 Write-Host "`nГотово: $msix" -ForegroundColor Green
 Write-Host "Установка: правый клик на artifacts\install.ps1 → Выполнить с помощью PowerShell (нужны права администратора)."
