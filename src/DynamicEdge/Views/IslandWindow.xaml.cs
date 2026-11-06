@@ -293,7 +293,7 @@ public partial class IslandWindow : Window
             case Mode.Expanded:
                 target = ExpLayer; RefreshExpanded();
                 (w, h) = ExpandedSize();
-                if (S.EnableSysInfo) { AppServices.SysInfo.Sample(); _sysTimer.Interval = TimeSpan.FromMilliseconds(600); _sysTimer.Start(); }
+                if (S.EnableSysInfo) { ApplyTempColumn(AppServices.SysInfo.Sample().TempC.HasValue); _sysTimer.Interval = TimeSpan.FromMilliseconds(600); _sysTimer.Start(); }
                 _progTimer.Start(); UpdateProgress();
                 break;
             default:
@@ -724,12 +724,25 @@ public partial class IslandWindow : Window
         ClipEmpty.Visibility = _clips.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    bool _tempShown = true;
+
+    /// Столбец температуры показывается, только если Windows отдаёт данные датчика.
+    void ApplyTempColumn(bool has)
+    {
+        if (has == _tempShown) return;
+        _tempShown = has;
+        TempPanel.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+        SysSpacer2.Width = has ? new GridLength(12) : new GridLength(0);
+        SysTempCol.Width = has ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    }
+
     void SampleSys()
     {
         if (_mode != Mode.Expanded || !S.EnableSysInfo) return;
         var s = AppServices.SysInfo.Sample();
         CpuText.Text = $"{s.Cpu:0}%"; RamText.Text = $"{s.Ram:0}% · {s.UsedGb:0.0} ГБ";
-        TempText.Text = s.TempC is double t ? $"{t:0} °C" : "н/д";
+        ApplyTempColumn(s.TempC.HasValue);
+        if (s.TempC is double t) TempText.Text = $"{t:0} °C";
         SetBar(CpuScale, s.Cpu / 100); SetBar(RamScale, s.Ram / 100);
         SetBar(TempScale, s.TempC is double t2 ? (t2 - 30) / 70 : 0);
     }
