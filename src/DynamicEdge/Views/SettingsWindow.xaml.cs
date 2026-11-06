@@ -31,7 +31,66 @@ public partial class SettingsWindow : Window
 
         NotifStatus.Text = "Статус: " + AppServices.Notifications.Status;
         PathsText.Text = $"Версия .NET: {Environment.Version}\nУстановка: {(Native.IsPackaged() ? "MSIX" : "обычная (без package identity)")}\nНастройки: {SettingsService.FilePath}\nЛог: {SettingsService.LogPath}";
+        FillOrderList();
+        Closed += (_, _) => ((App)Application.Current).Island?.ReleaseHold();
         _loading = false;
+    }
+
+    static readonly System.Collections.Generic.Dictionary<string, string> BlockNames = new()
+    { ["Music"] = "Музыка", ["Sys"] = "Система (CPU, RAM, температура)", ["Timer"] = "Таймер", ["Clip"] = "Буфер обмена" };
+
+    void FillOrderList(string? select = null)
+    {
+        OrderList.Items.Clear();
+        foreach (var k in SettingsService.PanelOrderList)
+            OrderList.Items.Add(new ListBoxItem { Content = BlockNames[k], Tag = k });
+        if (select != null)
+            foreach (ListBoxItem it in OrderList.Items) if ((string)it.Tag == select) { OrderList.SelectedItem = it; break; }
+    }
+
+    void MoveBlock(int delta)
+    {
+        if (OrderList.SelectedItem is not ListBoxItem sel) return;
+        var keys = new System.Collections.Generic.List<string>();
+        foreach (ListBoxItem it in OrderList.Items) keys.Add((string)it.Tag);
+        int i = keys.IndexOf((string)sel.Tag), j = i + delta;
+        if (i < 0 || j < 0 || j >= keys.Count) return;
+        (keys[i], keys[j]) = (keys[j], keys[i]);
+        SettingsService.Current.PanelOrder = string.Join(",", keys);
+        SettingsService.NotifyChanged();
+        FillOrderList((string)sel.Tag);
+    }
+
+    void OrderUp_Click(object sender, RoutedEventArgs e) => MoveBlock(-1);
+    void OrderDown_Click(object sender, RoutedEventArgs e) => MoveBlock(1);
+
+    void Preview_Click(object sender, RoutedEventArgs e) => ((App)Application.Current).Island?.PreviewExpanded();
+
+    void Rebind()
+    {
+        _loading = true;
+        DataContext = null; DataContext = SettingsService.Current;
+        FillOrderList();
+        _loading = false;
+        SettingsService.NotifyChanged();
+    }
+
+    void ResetShape_Click(object sender, RoutedEventArgs e)
+    {
+        var d = new AppSettings(); var s = SettingsService.Current;
+        s.CornerRadiusMax = d.CornerRadiusMax; s.BorderWidth = d.BorderWidth; s.ShadowStrength = d.ShadowStrength;
+        s.IdleHeight = d.IdleHeight; s.ExpandedWidth = d.ExpandedWidth; s.AnimStyle = d.AnimStyle;
+        s.SpringAmount = d.SpringAmount; s.AnimSpeed = d.AnimSpeed; s.Animations = d.Animations;
+        Rebind();
+    }
+
+    void ResetLayout_Click(object sender, RoutedEventArgs e)
+    {
+        var d = new AppSettings(); var s = SettingsService.Current;
+        s.IdleShowArt = d.IdleShowArt; s.IdleShowBars = d.IdleShowBars; s.IdleShowTrack = d.IdleShowTrack;
+        s.IdleShowTimer = d.IdleShowTimer; s.IdleShowBattery = d.IdleShowBattery; s.IdleShowClock = d.IdleShowClock;
+        s.PanelOrder = d.PanelOrder; s.TimerPresets = d.TimerPresets;
+        Rebind();
     }
 
     void Setting_Changed(object? sender, DataTransferEventArgs e)

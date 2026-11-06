@@ -14,6 +14,7 @@ public partial class App : Application
     IslandWindow? _island;
     SettingsWindow? _settings;
     WF.NotifyIcon? _tray;
+    public IslandWindow? Island => _island;
 
     protected override async void OnStartup(StartupEventArgs e)
     {

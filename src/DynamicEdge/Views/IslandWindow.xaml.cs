@@ -52,6 +52,10 @@ public partial class IslandWindow : Window
     readonly DispatcherTimer _sysTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
     readonly DispatcherTimer _progTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     readonly DispatcherTimer _watchTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    readonly DispatcherTimer _idleTimer = new() { Interval = TimeSpan.FromSeconds(15) };
+    string _presetKey = "", _orderKey = "";
+    /// Пока true, развёрнутая панель не сворачивается сама (предпросмотр из настроек).
+    public bool Hold { get; set; }
 
     bool _userHidden, _fsHidden, _suppressClip;
     string _hkKey = "";
@@ -68,10 +72,11 @@ public partial class IslandWindow : Window
         _toastTimer.Tick += (_, _) => OnToastTimer();
         _hoverTimer.Tick += (_, _) => { _hoverTimer.Stop(); if (_mode == Mode.Idle && Capsule.IsMouseOver) SetMode(Mode.Hover); };
         _leaveTimer.Tick += (_, _) => { _leaveTimer.Stop(); if (_mode == Mode.Hover && !Capsule.IsMouseOver) SetMode(Mode.Idle); };
-        _collapseTimer.Tick += (_, _) => { _collapseTimer.Stop(); if (_mode == Mode.Expanded && !Capsule.IsMouseOver) SetMode(Mode.Idle); };
+        _collapseTimer.Tick += (_, _) => { _collapseTimer.Stop(); if (_mode == Mode.Expanded && !Capsule.IsMouseOver && !Hold) SetMode(Mode.Idle); };
         _sysTimer.Tick += (_, _) => { SampleSys(); _sysTimer.Interval = TimeSpan.FromMilliseconds(1500); };
         _progTimer.Tick += (_, _) => UpdateProgress();
         _watchTimer.Tick += (_, _) => Watchdog();
+        _idleTimer.Tick += (_, _) => UpdateIdle(false);
     }
 
     // ------------------------------------------------------------------ init
@@ -153,6 +158,14 @@ public partial class IslandWindow : Window
     {
         ThemeManager.Apply();
         CapScale.ScaleX = CapScale.ScaleY = S.Scale;
+        Capsule.BorderThickness = new Thickness(S.BorderWidth);
+        CapShadow.Opacity = S.ShadowStrength;
+        Capsule.Effect = S.ShadowStrength > 0.01 ? CapShadow : null;
+        Capsule.CornerRadius = new CornerRadius(Math.Min(Capsule.ActualHeight / 2, S.CornerRadiusMax));
+        ExpLayer.Width = S.ExpandedWidth - 32;
+        BuildPresets();
+        bool needIdle = S.IdleShowClock || S.IdleShowBattery;
+        if (needIdle && !_idleTimer.IsEnabled) _idleTimer.Start(); else if (!needIdle && _idleTimer.IsEnabled) _idleTimer.Stop();
         PositionWindow();
         AppServices.Battery.Enabled = S.EnableBattery;
         AppServices.MicUsage.Enabled = S.EnableMic;
@@ -195,10 +208,17 @@ public partial class IslandWindow : Window
     public void ToggleExpanded() { if (_userHidden) { _userHidden = false; ApplyVisibility(); } if (_mode == Mode.Expanded) SetMode(Mode.Idle); else SetMode(Mode.Expanded); }
 
     // ------------------------------------------------------------------ animation helpers
+    /// Длительность с учётом скорости анимаций из настроек.
+    static TimeSpan Dur(int ms)
+    {
+        double k = Math.Max(0.3, S.AnimSpeed) * (S.AnimStyle == "Instant" ? 4 : 1);
+        return TimeSpan.FromMilliseconds(ms / k);
+    }
+
     void Fade(UIElement el, double to, int ms, int delay = 0, Action? done = null)
     {
         if (!S.Animations) { el.BeginAnimation(OpacityProperty, null); el.Opacity = to; done?.Invoke(); return; }
-        var a = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms)) { BeginTime = TimeSpan.FromMilliseconds(delay), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        var a = new DoubleAnimation(to, Dur(ms)) { BeginTime = Dur(delay), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
         if (done != null) a.Completed += (_, _) => done();
         el.BeginAnimation(OpacityProperty, a);
     }
@@ -206,18 +226,21 @@ public partial class IslandWindow : Window
     void AnimateSize(double w, double h, bool grow)
     {
         _curW = w; _curH = h;
-        if (!S.Animations)
+        if (!S.Animations || S.AnimStyle == "Instant")
         {
             Capsule.BeginAnimation(WidthProperty, null); Capsule.BeginAnimation(HeightProperty, null);
             Capsule.Width = w; Capsule.Height = h; return;
         }
-        IEasingFunction ease = grow ? new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 } : new CubicEase { EasingMode = EasingMode.EaseInOut };
-        var dur = TimeSpan.FromMilliseconds(grow ? 480 : 300);
+        IEasingFunction ease; int ms;
+        if (S.AnimStyle == "Spring" && grow) { ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = S.SpringAmount }; ms = 480; }
+        else if (S.AnimStyle == "Spring") { ease = new CubicEase { EasingMode = EasingMode.EaseInOut }; ms = 300; }
+        else { ease = new SineEase { EasingMode = EasingMode.EaseInOut }; ms = 420; }
+        var dur = Dur(ms);
         Capsule.BeginAnimation(WidthProperty, new DoubleAnimation(w, dur) { EasingFunction = ease });
         Capsule.BeginAnimation(HeightProperty, new DoubleAnimation(h, dur) { EasingFunction = ease });
     }
 
-    void Capsule_SizeChanged(object sender, SizeChangedEventArgs e) => Capsule.CornerRadius = new CornerRadius(Math.Min(e.NewSize.Height / 2, 30));
+    void Capsule_SizeChanged(object sender, SizeChangedEventArgs e) => Capsule.CornerRadius = new CornerRadius(Math.Min(e.NewSize.Height / 2, S.CornerRadiusMax));
 
     void CrossFade(FrameworkElement target)
     {
@@ -230,7 +253,7 @@ public partial class IslandWindow : Window
                     l.BeginAnimation(OpacityProperty, null); l.Opacity = 0; l.Visibility = Visibility.Visible;
                     Fade(l, 1, 240, 110);
                     if (S.Animations && l.RenderTransform is TranslateTransform tt)
-                        tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(10, 0, TimeSpan.FromMilliseconds(260)) { BeginTime = TimeSpan.FromMilliseconds(110), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+                        tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(10, 0, Dur(260)) { BeginTime = Dur(110), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
                 }
             }
             else if (l.Visibility == Visibility.Visible)
@@ -255,7 +278,7 @@ public partial class IslandWindow : Window
     {
         v = Math.Clamp(v, 0, 1);
         if (!S.Animations) { st.BeginAnimation(ScaleTransform.ScaleXProperty, null); st.ScaleX = v; return; }
-        st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(v, TimeSpan.FromMilliseconds(320)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(v, Dur(320)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
     }
 
     // ------------------------------------------------------------------ mode machine
@@ -275,7 +298,7 @@ public partial class IslandWindow : Window
                 break;
             default:
                 target = IdleLayer; UpdateIdle(false);
-                w = IdleWidth(); h = m == Mode.Hover ? 38 : 34; break;
+                w = IdleWidth(); h = m == Mode.Hover ? S.IdleHeight + 4 : S.IdleHeight; break;
         }
         bool grow = w * h > _curW * _curH;
         CrossFade(target);
@@ -288,14 +311,15 @@ public partial class IslandWindow : Window
     {
         // Collapsed-элемент измеряется как 0×0, поэтому для замера делаем его Hidden (он занимает место, но не рисуется)
         if (ExpLayer.Visibility == Visibility.Collapsed) ExpLayer.Visibility = Visibility.Hidden;
-        ExpLayer.Measure(new Size(408, double.PositiveInfinity));
-        return (440, Math.Max(80, ExpLayer.DesiredSize.Height + 36));
+        ExpLayer.Measure(new Size(S.ExpandedWidth - 32, double.PositiveInfinity));
+        return (S.ExpandedWidth, Math.Max(80, ExpLayer.DesiredSize.Height + 36));
     }
 
     void ResizeExpanded() { var (w, h) = ExpandedSize(); AnimateSize(w, h, false); }
 
     void Capsule_Click(object sender, MouseButtonEventArgs e)
     {
+        Hold = false;
         if (_mode == Mode.Expanded) SetMode(Mode.Idle);
         else { _hoverTimer.Stop(); SetMode(Mode.Expanded); }
     }
@@ -318,7 +342,7 @@ public partial class IslandWindow : Window
     // ------------------------------------------------------------------ idle layer
     bool MusicOn => S.EnableMusic && AppServices.Media.Current.HasSession;
     bool TimerOn => S.EnableTimer && AppServices.Timer.Running;
-    bool NothingToShow => !MusicOn && !TimerOn && !(S.EnableMic && AppServices.MicUsage.Active);
+    bool NothingToShow => !(MusicOn && (S.IdleShowArt || S.IdleShowBars)) && BuildIdleText(false).Length == 0 && !(S.EnableMic && AppServices.MicUsage.Active);
 
     void ApplyIdleAutoHide()
     {
@@ -329,31 +353,45 @@ public partial class IslandWindow : Window
 
     static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"mm\:ss");
 
+    string BuildIdleText(bool hover)
+    {
+        var mi = AppServices.Media.Current;
+        var parts = new System.Collections.Generic.List<string>();
+        bool track = MusicOn && mi.Title.Length > 0;
+        string trackText = mi.Artist.Length > 0 ? $"{mi.Artist} — {mi.Title}" : mi.Title;
+        if (hover)
+        {
+            if (track) parts.Add(trackText);
+            if (TimerOn) parts.Add(Fmt(AppServices.Timer.Display));
+            if (S.EnableBattery && AppServices.Battery.HasBattery) parts.Add($"{AppServices.Battery.Percent}%");
+            parts.Add(DateTime.Now.ToString("HH:mm"));
+        }
+        else
+        {
+            if (S.IdleShowTrack && track) parts.Add(trackText);
+            if (S.IdleShowTimer && TimerOn) parts.Add(Fmt(AppServices.Timer.Display));
+            if (S.IdleShowBattery && S.EnableBattery && AppServices.Battery.HasBattery) parts.Add($"{AppServices.Battery.Percent}%");
+            if (S.IdleShowClock) parts.Add(DateTime.Now.ToString("HH:mm"));
+        }
+        return string.Join("  •  ", parts);
+    }
+
     void RefreshIdle()
     {
         var mi = AppServices.Media.Current;
         bool music = MusicOn;
-        if (music && mi.Art is System.Windows.Media.ImageSource art)
+        if (music && S.IdleShowArt && mi.Art is System.Windows.Media.ImageSource art)
         {
             IdleArt.Background = new ImageBrush(art) { Stretch = Stretch.UniformToFill };
             IdleArt.Visibility = Visibility.Visible;
         }
         else IdleArt.Visibility = Visibility.Collapsed;
-        IdleBars.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
-        IdleBars.IsActive = music && mi.Playing;
+        bool bars = music && S.IdleShowBars;
+        IdleBars.Visibility = bars ? Visibility.Visible : Visibility.Collapsed;
+        IdleBars.IsActive = bars && mi.Playing;
         MicDot.Visibility = S.EnableMic && AppServices.MicUsage.Active ? Visibility.Visible : Visibility.Collapsed;
 
-        string text = "";
-        if (_mode == Mode.Hover)
-        {
-            var parts = new System.Collections.Generic.List<string>();
-            if (music && mi.Title.Length > 0) parts.Add(mi.Artist.Length > 0 ? $"{mi.Artist} — {mi.Title}" : mi.Title);
-            if (TimerOn) parts.Add(Fmt(AppServices.Timer.Display));
-            if (S.EnableBattery && AppServices.Battery.HasBattery) parts.Add($"{AppServices.Battery.Percent}%");
-            parts.Add(DateTime.Now.ToString("HH:mm"));
-            text = string.Join("  •  ", parts);
-        }
-        else if (TimerOn) text = Fmt(AppServices.Timer.Display);
+        string text = BuildIdleText(_mode == Mode.Hover);
         IdleText.Text = text;
         IdleText.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -369,7 +407,7 @@ public partial class IslandWindow : Window
         if (_mode != Mode.Idle && _mode != Mode.Hover) return;
         RefreshIdle();
         double w = IdleWidth();
-        if (force || Math.Abs(w - _curW) > 2) AnimateSize(w, _mode == Mode.Hover ? 38 : 34, false);
+        if (force || Math.Abs(w - _curW) > 2) AnimateSize(w, _mode == Mode.Hover ? S.IdleHeight + 4 : S.IdleHeight, false);
         ApplyIdleAutoHide();
     }
 
@@ -438,9 +476,9 @@ public partial class IslandWindow : Window
         if (t.Shake) Shake();
         if (pulseSwap && S.Animations)
         {
-            ToastLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(0.35, 1, TimeSpan.FromMilliseconds(220)));
+            ToastLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(0.35, 1, Dur(220)));
             if (ToastLayer.RenderTransform is TranslateTransform tt)
-                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(6, 0, TimeSpan.FromMilliseconds(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(6, 0, Dur(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
         }
     }
 
@@ -584,6 +622,56 @@ public partial class IslandWindow : Window
         Post(new Toast { Key = "timer", Glyph = "\uE916", Title = "Таймер завершён", Subtitle = Fmt(AppServices.Timer.Total), Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 8000, Urgent = true, Shake = true });
     }
 
+    void BuildPresets()
+    {
+        var list = SettingsService.PresetList;
+        string key = string.Join(",", list);
+        if (key == _presetKey) return;
+        _presetKey = key;
+        PresetHost.Children.Clear();
+        foreach (int m in list)
+        {
+            var b = new Button { Style = (Style)FindResource("ChipBtn"), Content = m >= 60 && m % 60 == 0 ? $"{m / 60}ч" : $"{m}м", Tag = m.ToString() };
+            b.Click += Preset_Click;
+            PresetHost.Children.Add(b);
+        }
+    }
+
+    void ApplyPanelOrder()
+    {
+        var order = SettingsService.PanelOrderList;
+        string key = string.Join(",", order);
+        if (key != _orderKey)
+        {
+            _orderKey = key;
+            var map = new System.Collections.Generic.Dictionary<string, UIElement>
+            { ["Music"] = ExpMusicSection, ["Sys"] = ExpSysSection, ["Timer"] = ExpTimerSection, ["Clip"] = ExpClipSection };
+            ExpStack.Children.Clear();
+            foreach (var k in order) if (map.TryGetValue(k, out var el)) ExpStack.Children.Add(el);
+        }
+        FrameworkElement? last = null;
+        foreach (FrameworkElement el in ExpStack.Children)
+        {
+            el.Margin = new Thickness(0, 0, 0, 12);
+            if (el.Visibility == Visibility.Visible) last = el;
+        }
+        if (last != null) last.Margin = new Thickness(0);
+    }
+
+    /// Предпросмотр из окна настроек: разворачивает капсулу и не даёт ей свернуться.
+    public void PreviewExpanded()
+    {
+        _userHidden = false; ApplyVisibility();
+        Hold = true;
+        if (_mode != Mode.Expanded) SetMode(Mode.Expanded);
+    }
+
+    public void ReleaseHold()
+    {
+        Hold = false;
+        if (_mode == Mode.Expanded && !Capsule.IsMouseOver) { _collapseTimer.Stop(); _collapseTimer.Start(); }
+    }
+
     void Preset_Click(object sender, RoutedEventArgs e) { if (((FrameworkElement)sender).Tag is string s && int.TryParse(s, out var m)) AppServices.Timer.Start(TimeSpan.FromMinutes(m)); }
     void Stopwatch_Click(object sender, RoutedEventArgs e) => AppServices.Timer.StartStopwatch();
     void TimerStop_Click(object sender, RoutedEventArgs e) => AppServices.Timer.Stop();
@@ -595,6 +683,7 @@ public partial class IslandWindow : Window
         ExpSysSection.Visibility = S.EnableSysInfo ? Visibility.Visible : Visibility.Collapsed;
         ExpTimerSection.Visibility = S.EnableTimer ? Visibility.Visible : Visibility.Collapsed;
         ExpClipSection.Visibility = S.EnableClipboard ? Visibility.Visible : Visibility.Collapsed;
+        ApplyPanelOrder();
         UpdateMusicUi(); UpdateTimerUi(); UpdateClipUi();
     }
 

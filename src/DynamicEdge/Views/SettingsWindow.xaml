@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         ThemeMode="System"
-        Title="Dynamic Edge — Настройки" Width="560" Height="640" MinWidth="480" MinHeight="480"
+        Title="Dynamic Edge — Настройки" Width="600" Height="700" MinWidth="480" MinHeight="480"
         WindowStartupLocation="CenterScreen" FontFamily="Segoe UI Variable Text, Segoe UI"
         Binding.SourceUpdated="Setting_Changed">
   <TabControl Margin="12">
@@ -62,7 +62,66 @@
           <Slider x:Name="Sl_Scale" Minimum="0.8" Maximum="1.3" TickFrequency="0.05" IsSnapToTickEnabled="True" Value="{Binding Scale, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,16"/>
           <Grid Margin="0,0,0,4"><TextBlock Text="Прозрачность фона (непрозрачность)"/><TextBlock Text="{Binding Value, ElementName=Sl_Opacity, StringFormat={}{0:P0}}" HorizontalAlignment="Right"/></Grid>
           <Slider x:Name="Sl_Opacity" Minimum="0.4" Maximum="1" TickFrequency="0.02" IsSnapToTickEnabled="True" Value="{Binding Opacity, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,16"/>
-          <CheckBox Content="Анимации (spring, fade, плавное раскрытие)" IsChecked="{Binding Animations, Mode=TwoWay, NotifyOnSourceUpdated=True}"/>
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+    <TabItem Header="Форма и анимации">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+          <Button Content="Показать в развёрнутом виде (предпросмотр)" Click="Preview_Click" HorizontalAlignment="Left" Margin="0,0,0,16"/>
+          <TextBlock Text="Форма" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Скругление углов (px)"/><TextBlock Text="{Binding Value, ElementName=Sl_Corner}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_Corner" Minimum="4" Maximum="40" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding CornerRadiusMax, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Толщина обводки"/><TextBlock Text="{Binding Value, ElementName=Sl_Border, StringFormat={}{0:0.0}}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_Border" Minimum="0" Maximum="3" TickFrequency="0.5" IsSnapToTickEnabled="True" Value="{Binding BorderWidth, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Сила тени"/><TextBlock Text="{Binding Value, ElementName=Sl_Shadow, StringFormat={}{0:P0}}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_Shadow" Minimum="0" Maximum="0.8" TickFrequency="0.02" IsSnapToTickEnabled="True" Value="{Binding ShadowStrength, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Высота капсулы в покое (px)"/><TextBlock Text="{Binding Value, ElementName=Sl_IdleH}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_IdleH" Minimum="26" Maximum="50" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding IdleHeight, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Ширина развёрнутой панели (px)"/><TextBlock Text="{Binding Value, ElementName=Sl_ExpW}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_ExpW" Minimum="380" Maximum="560" TickFrequency="10" IsSnapToTickEnabled="True" Value="{Binding ExpandedWidth, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,16"/>
+          <TextBlock Text="Анимации" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <CheckBox Content="Включить анимации" IsChecked="{Binding Animations, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,12"/>
+          <TextBlock Text="Характер раскрытия" Margin="0,0,0,4"/>
+          <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding AnimStyle, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,12">
+            <ComboBoxItem Tag="Spring" Content="Упругая (пружина)"/>
+            <ComboBoxItem Tag="Smooth" Content="Мягкая (плавная)"/>
+            <ComboBoxItem Tag="Instant" Content="Мгновенная (без анимации размера)"/>
+          </ComboBox>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Сила пружины (для упругой)"/><TextBlock Text="{Binding Value, ElementName=Sl_Spring, StringFormat={}{0:0.00}}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_Spring" Minimum="0.1" Maximum="0.8" TickFrequency="0.05" IsSnapToTickEnabled="True" Value="{Binding SpringAmount, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <Grid Margin="0,0,0,4"><TextBlock Text="Скорость анимаций (×)"/><TextBlock Text="{Binding Value, ElementName=Sl_Speed, StringFormat={}{0:0.0}}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_Speed" Minimum="0.5" Maximum="2" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding AnimSpeed, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,16"/>
+          <Button Content="Сбросить форму и анимации" Click="ResetShape_Click" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+    <TabItem Header="Содержимое">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+          <TextBlock Text="Что показывать в свёрнутой капсуле" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <CheckBox Content="Обложка трека" IsChecked="{Binding IdleShowArt, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Анимированный эквалайзер" IsChecked="{Binding IdleShowBars, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Название трека и исполнитель" IsChecked="{Binding IdleShowTrack, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Таймер и секундомер" IsChecked="{Binding IdleShowTimer, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Заряд батареи" IsChecked="{Binding IdleShowBattery, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Часы" IsChecked="{Binding IdleShowClock, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,18"/>
+          <TextBlock Text="Порядок блоков в развёрнутой панели" FontWeight="SemiBold" Margin="0,0,0,4"/>
+          <TextBlock Text="Блоки, отключённые на вкладке «Функции», не показываются." Opacity="0.65" FontSize="12" Margin="0,0,0,8"/>
+          <Grid Margin="0,0,0,18">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ListBox x:Name="OrderList" Height="124"/>
+            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+              <Button Content="▲ Выше" Click="OrderUp_Click" Margin="0,0,0,6"/>
+              <Button Content="▼ Ниже" Click="OrderDown_Click"/>
+            </StackPanel>
+          </Grid>
+          <TextBlock Text="Свои пресеты таймера" FontWeight="SemiBold" Margin="0,0,0,4"/>
+          <TextBlock Text="Минуты через запятую, до 5 значений (например: 3, 15, 45, 90)." Opacity="0.65" FontSize="12" Margin="0,0,0,8"/>
+          <TextBox Text="{Binding TimerPresets, Mode=TwoWay, UpdateSourceTrigger=LostFocus, NotifyOnSourceUpdated=True}" Margin="0,0,0,18"/>
+          <Button Content="Сбросить содержимое по умолчанию" Click="ResetLayout_Click" HorizontalAlignment="Left"/>
         </StackPanel>
       </ScrollViewer>
     </TabItem>

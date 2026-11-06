@@ -18,7 +18,7 @@
           <TranslateTransform x:Name="CapShift"/>
         </TransformGroup>
       </Border.RenderTransform>
-      <Border.Effect><DropShadowEffect BlurRadius="26" ShadowDepth="5" Opacity="0.38" Color="Black"/></Border.Effect>
+      <Border.Effect><DropShadowEffect x:Name="CapShadow" BlurRadius="26" ShadowDepth="5" Opacity="0.38" Color="Black"/></Border.Effect>
 
       <Grid>
         <!-- ============ IDLE / HOVER ============ -->
@@ -62,7 +62,7 @@
         <!-- ============ EXPANDED ============ -->
         <Grid x:Name="ExpLayer" Width="408" VerticalAlignment="Top" Margin="0,16,0,0" Visibility="Collapsed" Opacity="0">
           <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
-          <StackPanel>
+          <StackPanel x:Name="ExpStack">
             <!-- Музыка -->
             <Grid x:Name="ExpMusicSection" Margin="0,0,0,12">
               <Grid x:Name="ExpMusic">
@@ -128,10 +128,7 @@
                 <TextBlock x:Name="ExpTimerLabel" Text="Таймер не запущен" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/>
               </StackPanel>
               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Style="{StaticResource ChipBtn}" Content="1м" Tag="1" Click="Preset_Click"/>
-                <Button Style="{StaticResource ChipBtn}" Content="5м" Tag="5" Click="Preset_Click"/>
-                <Button Style="{StaticResource ChipBtn}" Content="10м" Tag="10" Click="Preset_Click"/>
-                <Button Style="{StaticResource ChipBtn}" Content="25м" Tag="25" Click="Preset_Click"/>
+                <StackPanel x:Name="PresetHost" Orientation="Horizontal"/>
                 <Button Style="{StaticResource ChipBtn}" Click="Stopwatch_Click" ToolTip="Секундомер"><TextBlock Text="&#xE916;" FontFamily="{StaticResource IconFont}"/></Button>
                 <Button Style="{StaticResource ChipBtn}" Click="TimerStop_Click" ToolTip="Сбросить"><TextBlock Text="&#xE71A;" FontFamily="{StaticResource IconFont}"/></Button>
               </StackPanel>

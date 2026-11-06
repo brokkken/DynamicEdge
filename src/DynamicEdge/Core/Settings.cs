@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Threading;
 
@@ -33,6 +35,26 @@ public sealed class AppSettings
     public int LowBatteryPercent { get; set; } = 20;
     public int DefaultTimerMinutes { get; set; } = 5;
 
+    // --- Форма и анимации ---
+    public int CornerRadiusMax { get; set; } = 30;      // максимальный радиус скругления, px
+    public double BorderWidth { get; set; } = 1.0;      // толщина обводки
+    public double ShadowStrength { get; set; } = 0.38;  // 0 = без тени
+    public int IdleHeight { get; set; } = 34;           // высота капсулы в покое
+    public int ExpandedWidth { get; set; } = 440;       // ширина развёрнутой панели
+    public string AnimStyle { get; set; } = "Spring";   // Spring | Smooth | Instant
+    public double SpringAmount { get; set; } = 0.4;     // сила «пружины»
+    public double AnimSpeed { get; set; } = 1.0;        // множитель скорости
+
+    // --- Содержимое и раскладка ---
+    public bool IdleShowArt { get; set; } = true;
+    public bool IdleShowBars { get; set; } = true;
+    public bool IdleShowTrack { get; set; } = false;
+    public bool IdleShowTimer { get; set; } = true;
+    public bool IdleShowBattery { get; set; } = false;
+    public bool IdleShowClock { get; set; } = false;
+    public string PanelOrder { get; set; } = "Music,Sys,Timer,Clip";
+    public string TimerPresets { get; set; } = "1, 5, 10, 25";
+
     public string HotkeyToggle { get; set; } = "Ctrl+Alt+D";
     public string HotkeyHide { get; set; } = "Ctrl+Alt+H";
     public string HotkeyTimer { get; set; } = "Ctrl+Alt+T";
@@ -44,6 +66,9 @@ public static class SettingsService
     public static string FilePath => Path.Combine(Dir, "settings.json");
     public static string LogPath => Path.Combine(Dir, "log.txt");
     public static AppSettings Current { get; private set; } = new();
+    public static readonly string[] DefaultPanelOrder = { "Music", "Sys", "Timer", "Clip" };
+    public static string[] PanelOrderList { get; private set; } = DefaultPanelOrder;
+    public static int[] PresetList { get; private set; } = { 1, 5, 10, 25 };
     public static event Action? Changed;
 
     static DispatcherTimer? _saveTimer;
@@ -71,6 +96,35 @@ public static class SettingsService
         s.OffsetY = Math.Clamp(s.OffsetY, -6, 400);
         s.OffsetX = Math.Clamp(s.OffsetX, -2000, 2000);
         if (s.Theme != "Light" && s.Theme != "System") s.Theme = "Dark";
+
+        s.CornerRadiusMax = Math.Clamp(s.CornerRadiusMax, 4, 40);
+        s.BorderWidth = Math.Clamp(s.BorderWidth, 0, 3);
+        s.ShadowStrength = Math.Clamp(s.ShadowStrength, 0, 0.8);
+        s.IdleHeight = Math.Clamp(s.IdleHeight, 26, 50);
+        s.ExpandedWidth = Math.Clamp(s.ExpandedWidth, 380, 560);
+        s.SpringAmount = Math.Clamp(s.SpringAmount, 0.1, 0.8);
+        s.AnimSpeed = Math.Clamp(s.AnimSpeed, 0.5, 2.0);
+        if (s.AnimStyle != "Smooth" && s.AnimStyle != "Instant") s.AnimStyle = "Spring";
+
+        var order = new List<string>();
+        foreach (var tok in (s.PanelOrder ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var k = DefaultPanelOrder.FirstOrDefault(d => d.Equals(tok, StringComparison.OrdinalIgnoreCase));
+            if (k != null && !order.Contains(k)) order.Add(k);
+        }
+        foreach (var d in DefaultPanelOrder) if (!order.Contains(d)) order.Add(d);
+        PanelOrderList = order.ToArray();
+        s.PanelOrder = string.Join(",", order);
+
+        var presets = new List<int>();
+        foreach (var tok in (s.TimerPresets ?? "").Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (int.TryParse(tok.TrimEnd('м', 'm'), out var v) && v >= 1 && v <= 999 && !presets.Contains(v)) presets.Add(v);
+            if (presets.Count == 5) break;
+        }
+        if (presets.Count == 0) presets.AddRange(new[] { 1, 5, 10, 25 });
+        PresetList = presets.ToArray();
+        s.TimerPresets = string.Join(", ", presets);
     }
 
     /// <summary>Применяет изменения сразу, сохраняет на диск с задержкой.</summary>
