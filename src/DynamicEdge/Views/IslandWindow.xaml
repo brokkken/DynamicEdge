@@ -104,7 +104,7 @@
             <!-- Системная информация -->
             <Grid x:Name="ExpSysSection" Margin="0,0,0,12">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="SysSpacer2" Width="12"/><ColumnDefinition x:Name="SysTempCol" Width="*"/>
               </Grid.ColumnDefinitions>
               <StackPanel>
                 <DockPanel><TextBlock Text="CPU" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/><TextBlock x:Name="CpuText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" HorizontalAlignment="Right"/></DockPanel>
@@ -114,7 +114,7 @@
                 <DockPanel><TextBlock Text="RAM" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/><TextBlock x:Name="RamText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" HorizontalAlignment="Right"/></DockPanel>
                 <Grid Height="4" Margin="0,4,0,0"><Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/><Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5"><Border.RenderTransform><ScaleTransform x:Name="RamScale" ScaleX="0"/></Border.RenderTransform></Border></Grid>
               </StackPanel>
-              <StackPanel Grid.Column="4">
+              <StackPanel x:Name="TempPanel" Grid.Column="4">
                 <DockPanel><TextBlock Text="Темп." FontSize="11" Foreground="{DynamicResource Fg2Brush}"/><TextBlock x:Name="TempText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" HorizontalAlignment="Right"/></DockPanel>
                 <Grid Height="4" Margin="0,4,0,0"><Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/><Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5"><Border.RenderTransform><ScaleTransform x:Name="TempScale" ScaleX="0"/></Border.RenderTransform></Border></Grid>
               </StackPanel>
