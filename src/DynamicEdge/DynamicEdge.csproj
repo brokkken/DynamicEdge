@@ -11,7 +11,6 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Version>1.0.0</Version>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <NoWarn>$(NoWarn);WPF0001;CA1416;CS8618</NoWarn>
     <TieredPGO>true</TieredPGO>
