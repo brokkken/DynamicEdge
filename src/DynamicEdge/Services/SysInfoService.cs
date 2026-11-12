@@ -38,64 +38,66 @@ public sealed class SysInfoService
     }
 }
 
-/// Температура через PDH-счётчик «Thermal Zone Information». Доступен не на всех ПК (зависит от ACPI/BIOS).
+/// Температура через PDH-счётчик «Thermal Zone Information» (английский путь — не зависит от языка Windows).
+/// Доступен не на всех ПК: зависит от ACPI/BIOS. Причина недоступности пишется в log.txt.
 sealed class ThermalReader
 {
-    [StructLayout(LayoutKind.Explicit, Size = 16)]
-    struct PdhValue { [FieldOffset(0)] public uint Status; [FieldOffset(8)] public double Double; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct PdhItem { public IntPtr Name; public uint Status; public double Value; }
 
     [DllImport("pdh.dll", CharSet = CharSet.Unicode)] static extern uint PdhOpenQuery(string? src, IntPtr user, out IntPtr q);
     [DllImport("pdh.dll", CharSet = CharSet.Unicode, EntryPoint = "PdhAddEnglishCounterW")] static extern uint PdhAddEnglishCounter(IntPtr q, string path, IntPtr user, out IntPtr c);
     [DllImport("pdh.dll")] static extern uint PdhCollectQueryData(IntPtr q);
-    [DllImport("pdh.dll")] static extern uint PdhGetFormattedCounterValue(IntPtr c, uint fmt, out uint type, out PdhValue v);
-    [DllImport("pdh.dll", CharSet = CharSet.Unicode, EntryPoint = "PdhExpandWildCardPathW")] static extern uint PdhExpand(string? src, string wild, IntPtr buf, ref uint size, uint flags);
+    [DllImport("pdh.dll", EntryPoint = "PdhGetFormattedCounterArrayW")] static extern uint PdhGetFormattedCounterArray(IntPtr c, uint fmt, ref uint size, out uint count, IntPtr buf);
 
-    IntPtr _q;
-    readonly List<IntPtr> _counters = new();
-    bool _init, _ok;
+    const uint PDH_MORE_DATA = 0x800007D2;
+    const uint PDH_FMT_DOUBLE = 0x200;
+    IntPtr _q, _c;
+    bool _init, _ok, _loggedFail;
 
     void Init()
     {
         _init = true;
         try
         {
-            if (PdhOpenQuery(null, IntPtr.Zero, out _q) != 0) return;
-            uint size = 0;
-            const string wild = @"\Thermal Zone Information(*)\Temperature";
-            PdhExpand(null, wild, IntPtr.Zero, ref size, 0);      // PDH_MORE_DATA → size
-            if (size == 0) return;
-            var buf = Marshal.AllocHGlobal((int)size * 2);
-            try
-            {
-                if (PdhExpand(null, wild, buf, ref size, 0) != 0) return;
-                var all = Marshal.PtrToStringUni(buf, (int)size) ?? "";
-                foreach (var path in all.Split('\0', StringSplitOptions.RemoveEmptyEntries))
-                    if (PdhAddEnglishCounter(_q, path, IntPtr.Zero, out var c) == 0) _counters.Add(c);
-            }
-            finally { Marshal.FreeHGlobal(buf); }
-            _ok = _counters.Count > 0;
-            if (_ok) PdhCollectQueryData(_q);
+            uint r = PdhOpenQuery(null, IntPtr.Zero, out _q);
+            if (r != 0) { Core.SettingsService.Log($"Thermal: PdhOpenQuery 0x{r:X}"); return; }
+            r = PdhAddEnglishCounter(_q, @"\Thermal Zone Information(*)\Temperature", IntPtr.Zero, out _c);
+            if (r != 0) { Core.SettingsService.Log($"Thermal: счётчик недоступен (0x{r:X}) — Windows не предоставляет тепловые зоны на этом ПК"); return; }
+            PdhCollectQueryData(_q);
+            _ok = true;
         }
-        catch { _ok = false; }
+        catch (Exception ex) { Core.SettingsService.Log("Thermal init: " + ex.Message); }
     }
 
     public double? Read()
     {
         if (!_init) Init();
         if (!_ok) return null;
+        IntPtr buf = IntPtr.Zero;
         try
         {
             if (PdhCollectQueryData(_q) != 0) return null;
+            uint size = 0, count;
+            uint r = PdhGetFormattedCounterArray(_c, PDH_FMT_DOUBLE, ref size, out count, IntPtr.Zero);
+            if (r != PDH_MORE_DATA || size == 0) return null;
+            buf = Marshal.AllocHGlobal((int)size);
+            r = PdhGetFormattedCounterArray(_c, PDH_FMT_DOUBLE, ref size, out count, buf);
+            if (r != 0) return null;
+            int stride = Marshal.SizeOf<PdhItem>();
             double best = double.MinValue;
-            foreach (var c in _counters)
+            for (int i = 0; i < count; i++)
             {
-                if (PdhGetFormattedCounterValue(c, 0x200, out _, out var v) != 0) continue;
-                double t = v.Double;                      // Кельвины
+                var it = Marshal.PtrToStructure<PdhItem>(buf + i * stride);
+                if (it.Status != 0 && it.Status != 0x00000001) continue;   // PDH_CSTATUS_VALID_DATA / NEW_DATA
+                double t = it.Value;                                       // Кельвины
                 if (t > 200) t -= 273.15;
                 if (t > 0 && t < 130 && t > best) best = t;
             }
+            if (best == double.MinValue && !_loggedFail) { _loggedFail = true; Core.SettingsService.Log("Thermal: счётчик есть, но значений нет"); }
             return best > double.MinValue ? best : null;
         }
-        catch { return null; }
+        catch (Exception ex) { if (!_loggedFail) { _loggedFail = true; Core.SettingsService.Log("Thermal read: " + ex.Message); } return null; }
+        finally { if (buf != IntPtr.Zero) Marshal.FreeHGlobal(buf); }
     }
 }

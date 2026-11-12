@@ -55,6 +55,15 @@ public sealed class AppSettings
     public string PanelOrder { get; set; } = "Music,Sys,Timer,Clip";
     public string TimerPresets { get; set; } = "1, 5, 10, 25";
 
+    // --- Глазки ---
+    public bool FaceEnabled { get; set; } = true;
+    public bool FaceFollowCursor { get; set; } = true;
+    public bool FaceDance { get; set; } = true;          // пульсируют в такт музыке (заменяют эквалайзер)
+    public bool FaceInToasts { get; set; } = true;       // настроение в уведомлениях о событиях
+    public int FaceSleepMinutes { get; set; } = 3;       // 0 = никогда не засыпают
+    public double FaceSize { get; set; } = 1.0;
+    public string FaceColor { get; set; } = "White";     // White | Accent | Cyan | Green | Pink | Orange
+
     public string HotkeyToggle { get; set; } = "Ctrl+Alt+D";
     public string HotkeyHide { get; set; } = "Ctrl+Alt+H";
     public string HotkeyTimer { get; set; } = "Ctrl+Alt+T";
@@ -105,6 +114,10 @@ public static class SettingsService
         s.SpringAmount = Math.Clamp(s.SpringAmount, 0.1, 0.8);
         s.AnimSpeed = Math.Clamp(s.AnimSpeed, 0.5, 2.0);
         if (s.AnimStyle != "Smooth" && s.AnimStyle != "Instant") s.AnimStyle = "Spring";
+
+        s.FaceSleepMinutes = Math.Clamp(s.FaceSleepMinutes, 0, 60);
+        s.FaceSize = Math.Clamp(s.FaceSize, 0.6, 1.6);
+        if (Array.IndexOf(new[] { "White", "Accent", "Cyan", "Green", "Pink", "Orange" }, s.FaceColor) < 0) s.FaceColor = "White";
 
         var order = new List<string>();
         foreach (var tok in (s.PanelOrder ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))

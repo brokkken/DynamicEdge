@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -47,13 +48,18 @@ public sealed class MicUsageService
         return (false, null);
     }
 
-    void Poll()
+    bool _busy;
+
+    async void Poll()
     {
+        if (_busy) return;
+        _busy = true;
         try
         {
-            var (a, app) = Query();
+            var (a, app) = await Task.Run(Query);      // чтение реестра — вне потока UI
             if (a != Active || app != App) { Active = a; App = app; Changed?.Invoke(); }
         }
         catch { }
+        finally { _busy = false; }
     }
 }

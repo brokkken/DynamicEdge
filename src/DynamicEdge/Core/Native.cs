@@ -34,6 +34,17 @@ internal static class Native
     [DllImport("kernel32.dll")] public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX m);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern int GetCurrentPackageFullName(ref int len, StringBuilder? name);
 
+    [StructLayout(LayoutKind.Sequential)] public struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
+    [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO p);
+
+    /// Сколько секунд пользователь не трогал мышь и клавиатуру.
+    public static double IdleSeconds()
+    {
+        var i = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+        if (!GetLastInputInfo(ref i)) return 0;
+        return unchecked((uint)Environment.TickCount - i.dwTime) / 1000.0;
+    }
+
     public static void SetToolWindowNoActivate(IntPtr hwnd)
     {
         long ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();

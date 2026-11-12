@@ -126,6 +126,43 @@
       </ScrollViewer>
     </TabItem>
 
+    <TabItem Header="Глазки">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+          <TextBlock Text="Живые глазки в свёрнутой капсуле: моргают, смотрят по сторонам, засыпают и реагируют на события." TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,12"/>
+          <CheckBox Content="Включить глазки" IsChecked="{Binding FaceEnabled, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Следят за курсором мыши" IsChecked="{Binding FaceFollowCursor, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Пульсируют в такт музыке (вместо эквалайзера)" IsChecked="{Binding FaceDance, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Показывать настроение в уведомлениях" IsChecked="{Binding FaceInToasts, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <Grid Margin="0,8,0,4"><TextBlock Text="Засыпать через (мин, 0 — никогда)"/><TextBlock Text="{Binding Value, ElementName=Sl_Sleep}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_Sleep" Minimum="0" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding FaceSleepMinutes, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <Grid Margin="0,8,0,4"><TextBlock Text="Размер глазок"/><TextBlock Text="{Binding Value, ElementName=Sl_FaceSize, StringFormat={}{0:0.0}}" HorizontalAlignment="Right"/></Grid>
+          <Slider x:Name="Sl_FaceSize" Minimum="0.6" Maximum="1.6" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding FaceSize, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <TextBlock Text="Цвет" Margin="0,4,0,4"/>
+          <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding FaceColor, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,16">
+            <ComboBoxItem Tag="White" Content="Белый (в светлой теме тёмный)"/>
+            <ComboBoxItem Tag="Accent" Content="Цвет обложки трека"/>
+            <ComboBoxItem Tag="Cyan" Content="Голубой"/>
+            <ComboBoxItem Tag="Green" Content="Зелёный"/>
+            <ComboBoxItem Tag="Pink" Content="Розовый"/>
+            <ComboBoxItem Tag="Orange" Content="Оранжевый"/>
+          </ComboBox>
+          <TextBlock Text="Проверить настроения" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <WrapPanel Margin="0,0,0,10">
+              <Button Content="Радость" Tag="Happy" Click="Mood_Click" Margin="0,0,6,6"/>
+              <Button Content="Удивление" Tag="Surprised" Click="Mood_Click" Margin="0,0,6,6"/>
+              <Button Content="Сон" Tag="Sleeping" Click="Mood_Click" Margin="0,0,6,6"/>
+              <Button Content="Усталость" Tag="Tired" Click="Mood_Click" Margin="0,0,6,6"/>
+              <Button Content="Тревога" Tag="Alert" Click="Mood_Click" Margin="0,0,6,6"/>
+              <Button Content="Восторг" Tag="Excited" Click="Mood_Click" Margin="0,0,6,6"/>
+          </WrapPanel>
+          <TextBlock TextWrapping="Wrap" Opacity="0.65" FontSize="12" Margin="0,0,0,16"
+                     Text="Сами по себе глазки меняются так: пользуетесь компьютером — бодрые; навели курсор — радуются; играет музыка — пульсируют; микрофон включён — настороженные; низкий заряд — уставшие и красные; долго нет ввода — спят."/>
+          <Button Content="Сбросить глазки по умолчанию" Click="ResetFace_Click" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
     <TabItem Header="Горячие клавиши">
       <StackPanel Margin="16">
         <TextBlock Text="Нажмите поле и введите сочетание (нужен Ctrl, Alt, Shift или Win)." TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,12"/>

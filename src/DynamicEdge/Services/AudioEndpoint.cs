@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace DynamicEdge.Services;
 
@@ -54,6 +55,15 @@ public interface IAudioEndpointVolumeCallback
     [PreserveSig] int OnNotify(IntPtr notifyData);
 }
 
+[ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IAudioMeterInformation
+{
+    [PreserveSig] int GetPeakValue(out float peak);
+    [PreserveSig] int GetMeteringChannelCount(out uint count);
+    [PreserveSig] int GetChannelsPeakValues(uint count, [MarshalAs(UnmanagedType.LPArray)] float[] peaks);
+    [PreserveSig] int QueryHardwareSupport(out uint mask);
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public struct AudioVolumeNotifyData { public Guid EventContext; public int Muted; public float MasterVolume; public uint Channels; }
 
@@ -80,6 +90,7 @@ public sealed class AudioEndpoint : IDisposable
     IAudioEndpointVolume? _vol;
     VolumeCallback? _cb;
     string? _id;
+    IAudioMeterInformation? _meter;
     public event Action<float, bool>? Changed;
     public bool Available => _vol != null;
 
@@ -100,7 +111,7 @@ public sealed class AudioEndpoint : IDisposable
     void Detach()
     {
         try { if (_vol != null && _cb != null) _vol.UnregisterControlChangeNotify(_cb); } catch { }
-        _vol = null; _cb = null;
+        _vol = null; _cb = null; _meter = null;
     }
 
     void Attach()
@@ -114,6 +125,8 @@ public sealed class AudioEndpoint : IDisposable
             var iid = typeof(IAudioEndpointVolume).GUID;
             if (dev.Activate(ref iid, 23, IntPtr.Zero, out var o) != 0) return;
             _vol = (IAudioEndpointVolume)o;
+            var iidM = typeof(IAudioMeterInformation).GUID;
+            if (dev.Activate(ref iidM, 23, IntPtr.Zero, out var om) == 0) _meter = (IAudioMeterInformation)om;
             _cb = new VolumeCallback { Handler = (v, m) => Changed?.Invoke(v, m) };
             _vol.RegisterControlChangeNotify(_cb);
         }
@@ -127,6 +140,24 @@ public sealed class AudioEndpoint : IDisposable
         if (id == _id) return false;
         Attach();
         return true;
+    }
+
+    /// Проверка смены устройства по умолчанию: COM-запрос выполняется в фоне, переподключение — в потоке UI.
+    public async void RecheckDeviceAsync()
+    {
+        try
+        {
+            var id = await Task.Run(() => DefaultId(_flow));
+            if (id != _id) Attach();
+        }
+        catch { }
+    }
+
+    /// Пиковый уровень воспроизводимого звука 0..1 (для «танца» глазок).
+    public float GetPeak()
+    {
+        try { if (_meter != null && _meter.GetPeakValue(out var p) == 0) return p; } catch { }
+        return 0;
     }
 
     public (float volume, bool muted)? Read()

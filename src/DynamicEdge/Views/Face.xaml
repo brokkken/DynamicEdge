@@ -1,0 +1,49 @@
+<UserControl x:Class="DynamicEdge.Views.Face"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="White" IsHitTestVisible="False">
+  <Grid x:Name="Root" Width="44" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Grid.LayoutTransform><ScaleTransform x:Name="UnitScale"/></Grid.LayoutTransform>
+    <Grid RenderTransformOrigin="0.5,0.5">
+      <Grid.RenderTransform>
+        <TransformGroup><ScaleTransform x:Name="DanceScale"/><TranslateTransform x:Name="DanceShift"/></TransformGroup>
+      </Grid.RenderTransform>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Grid Width="10" Height="18" Margin="0,0,8,0" RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform><ScaleTransform x:Name="BlinkL"/></Grid.RenderTransform>
+        <Grid>
+          <Grid.RenderTransform><TranslateTransform x:Name="LookL"/></Grid.RenderTransform>
+          <Ellipse x:Name="EyeL" Width="10" Height="16" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+              <TransformGroup><ScaleTransform x:Name="ShapeL"/><RotateTransform x:Name="RotL"/></TransformGroup>
+            </Ellipse.RenderTransform>
+          </Ellipse>
+          <Path x:Name="ArcL" Data="M 1,11 Q 5,1 9,11" StrokeThickness="3.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}" Opacity="0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+      </Grid>
+      <Grid Width="10" Height="18" Margin="0" RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform><ScaleTransform x:Name="BlinkR"/></Grid.RenderTransform>
+        <Grid>
+          <Grid.RenderTransform><TranslateTransform x:Name="LookR"/></Grid.RenderTransform>
+          <Ellipse x:Name="EyeR" Width="10" Height="16" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+              <TransformGroup><ScaleTransform x:Name="ShapeR"/><RotateTransform x:Name="RotR"/></TransformGroup>
+            </Ellipse.RenderTransform>
+          </Ellipse>
+          <Path x:Name="ArcR" Data="M 1,11 Q 5,1 9,11" StrokeThickness="3.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}" Opacity="0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+      </Grid>
+      </StackPanel>
+    </Grid>
+    <TextBlock x:Name="Z1" Text="z" FontSize="8" FontWeight="Bold" Opacity="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,1,0"
+               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}">
+      <TextBlock.RenderTransform><TranslateTransform x:Name="Z1T"/></TextBlock.RenderTransform>
+    </TextBlock>
+    <TextBlock x:Name="Z2" Text="Z" FontSize="10" FontWeight="Bold" Opacity="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,-5,0"
+               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}">
+      <TextBlock.RenderTransform><TranslateTransform x:Name="Z2T"/></TextBlock.RenderTransform>
+    </TextBlock>
+  </Grid>
+</UserControl>

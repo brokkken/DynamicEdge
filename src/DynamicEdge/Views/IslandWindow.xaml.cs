@@ -25,6 +25,7 @@ public sealed class Toast
     public Color Accent = Colors.White;
     public int DurationMs = 4000;
     public bool Urgent, Shake, Pulse;
+    public FaceMood? Mood;
 }
 
 public sealed class ClipEntry
@@ -54,6 +55,8 @@ public partial class IslandWindow : Window
     readonly DispatcherTimer _watchTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     readonly DispatcherTimer _idleTimer = new() { Interval = TimeSpan.FromSeconds(15) };
     string _presetKey = "", _orderKey = "";
+    int _animToken, _wd;
+    FaceBrain _brain = null!;
     /// Пока true, развёрнутая панель не сворачивается сама (предпросмотр из настроек).
     public bool Hold { get; set; }
 
@@ -66,6 +69,7 @@ public partial class IslandWindow : Window
         InitializeComponent();
         _layers = new FrameworkElement[] { IdleLayer, ToastLayer, ExpLayer };
         _layerTarget = IdleLayer;
+        _brain = new FaceBrain(IdleFace);
         ClipList.ItemsSource = _clips;
         SourceInitialized += OnSourceInitialized;
 
@@ -131,8 +135,7 @@ public partial class IslandWindow : Window
         if (fs != _fsHidden) { _fsHidden = fs; ApplyVisibility(); }
         // поддерживаем Topmost поверх других topmost-окон
         if (IsVisible) Native.SetWindowPos(new WindowInteropHelper(this).Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
-        AppServices.Output.RecheckDevice();
-        AppServices.Input.RecheckDevice();
+        if (++_wd % 5 == 0) { AppServices.Output.RecheckDeviceAsync(); AppServices.Input.RecheckDeviceAsync(); }
     }
 
     void ApplyVisibility()
@@ -150,7 +153,7 @@ public partial class IslandWindow : Window
         }
     }
 
-    public void ToggleHidden() { _userHidden = !_userHidden; ApplyVisibility(); if (!_userHidden) Post(new Toast { Key = "vis", Glyph = "\uE7B3", Title = "Dynamic Edge", Subtitle = "Капсула снова видна", Accent = Colors.White, DurationMs = 1600 }); }
+    public void ToggleHidden() { _userHidden = !_userHidden; ApplyVisibility(); if (!_userHidden) Post(new Toast { Key = "vis", Mood = FaceMood.Happy, Glyph = "\uE7B3", Title = "Dynamic Edge", Subtitle = "Капсула снова видна", Accent = Colors.White, DurationMs = 1600 }); }
     public bool IsUserHidden => _userHidden;
 
     // ------------------------------------------------------------------ settings
@@ -164,6 +167,8 @@ public partial class IslandWindow : Window
         Capsule.CornerRadius = new CornerRadius(Math.Min(Capsule.ActualHeight / 2, S.CornerRadiusMax));
         ExpLayer.Width = S.ExpandedWidth - 32;
         BuildPresets();
+        IdleFace.Unit = S.FaceSize * S.IdleHeight / 34.0;
+        if (S.FaceEnabled) _brain.Start(); else _brain.Stop();
         bool needIdle = S.IdleShowClock || S.IdleShowBattery;
         if (needIdle && !_idleTimer.IsEnabled) _idleTimer.Start(); else if (!needIdle && _idleTimer.IsEnabled) _idleTimer.Stop();
         PositionWindow();
@@ -236,8 +241,31 @@ public partial class IslandWindow : Window
         else if (S.AnimStyle == "Spring") { ease = new CubicEase { EasingMode = EasingMode.EaseInOut }; ms = 300; }
         else { ease = new SineEase { EasingMode = EasingMode.EaseInOut }; ms = 420; }
         var dur = Dur(ms);
-        Capsule.BeginAnimation(WidthProperty, new DoubleAnimation(w, dur) { EasingFunction = ease });
+        // Тень (Effect) на прозрачном окне считается программно и тормозит анимацию размера:
+        // на время анимации убираем её, потом плавно возвращаем.
+        SuspendShadow();
+        int token = ++_animToken;
+        var wAnim = new DoubleAnimation(w, dur) { EasingFunction = ease };
+        wAnim.Completed += (_, _) => { if (token == _animToken) RestoreShadow(); };
+        Capsule.BeginAnimation(WidthProperty, wAnim);
         Capsule.BeginAnimation(HeightProperty, new DoubleAnimation(h, dur) { EasingFunction = ease });
+    }
+
+    void SuspendShadow()
+    {
+        if (Capsule.Effect == null) return;
+        CapShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, null);
+        Capsule.Effect = null;
+    }
+
+    void RestoreShadow()
+    {
+        if (S.ShadowStrength <= 0.01 || Capsule.Effect != null) return;
+        CapShadow.Opacity = S.ShadowStrength;
+        Capsule.Effect = CapShadow;
+        if (S.Animations)
+            CapShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty,
+                new DoubleAnimation(0, S.ShadowStrength, Dur(260)) { FillBehavior = FillBehavior.Stop });
     }
 
     void Capsule_SizeChanged(object sender, SizeChangedEventArgs e) => Capsule.CornerRadius = new CornerRadius(Math.Min(e.NewSize.Height / 2, S.CornerRadiusMax));
@@ -285,6 +313,7 @@ public partial class IslandWindow : Window
     void SetMode(Mode m)
     {
         _mode = m;
+        _brain.Hover = m == Mode.Hover;
         _collapseTimer.Stop(); _sysTimer.Stop(); _progTimer.Stop();
         double w, h; FrameworkElement target;
         switch (m)
@@ -327,6 +356,7 @@ public partial class IslandWindow : Window
     void Capsule_Enter(object sender, MouseEventArgs e)
     {
         _leaveTimer.Stop(); _collapseTimer.Stop();
+        _brain.Poke();
         if (_mode == Mode.Idle) { _hoverTimer.Stop(); _hoverTimer.Start(); }
         ApplyIdleAutoHide();
     }
@@ -342,7 +372,7 @@ public partial class IslandWindow : Window
     // ------------------------------------------------------------------ idle layer
     bool MusicOn => S.EnableMusic && AppServices.Media.Current.HasSession;
     bool TimerOn => S.EnableTimer && AppServices.Timer.Running;
-    bool NothingToShow => !(MusicOn && (S.IdleShowArt || S.IdleShowBars)) && BuildIdleText(false).Length == 0 && !(S.EnableMic && AppServices.MicUsage.Active);
+    bool NothingToShow => !S.FaceEnabled && !(MusicOn && (S.IdleShowArt || S.IdleShowBars)) && BuildIdleText(false).Length == 0 && !(S.EnableMic && AppServices.MicUsage.Active);
 
     void ApplyIdleAutoHide()
     {
@@ -386,7 +416,8 @@ public partial class IslandWindow : Window
             IdleArt.Visibility = Visibility.Visible;
         }
         else IdleArt.Visibility = Visibility.Collapsed;
-        bool bars = music && S.IdleShowBars;
+        IdleFace.Visibility = S.FaceEnabled ? Visibility.Visible : Visibility.Collapsed;
+        bool bars = music && S.IdleShowBars && !(S.FaceEnabled && S.FaceDance);
         IdleBars.Visibility = bars ? Visibility.Visible : Visibility.Collapsed;
         IdleBars.IsActive = bars && mi.Playing;
         MicDot.Visibility = S.EnableMic && AppServices.MicUsage.Active ? Visibility.Visible : Visibility.Collapsed;
@@ -394,6 +425,15 @@ public partial class IslandWindow : Window
         string text = BuildIdleText(_mode == Mode.Hover);
         IdleText.Text = text;
         IdleText.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        // отступы только между видимыми элементами, чтобы содержимое всегда было по центру
+        bool first = true;
+        foreach (FrameworkElement el in new FrameworkElement[] { MicDot, IdleArt, IdleFace, IdleBars, IdleText })
+        {
+            if (el.Visibility != Visibility.Visible) continue;
+            el.Margin = new Thickness(first ? 0 : 8, 0, 0, 0);
+            first = false;
+        }
     }
 
     double IdleWidth()
@@ -452,12 +492,22 @@ public partial class IslandWindow : Window
         if (t.Image != null)
         {
             ToastImg.Source = t.Image; ToastImg.Visibility = Visibility.Visible; ToastGlyph.Visibility = Visibility.Collapsed;
+            ToastFace.Visibility = Visibility.Collapsed;
             ToastIcon.Background = (Brush)FindResource("ChipBg");
         }
         else
         {
-            ToastImg.Visibility = Visibility.Collapsed; ToastGlyph.Visibility = Visibility.Visible;
+            bool face = S.FaceEnabled && S.FaceInToasts && t.Mood.HasValue;
+            ToastImg.Visibility = Visibility.Collapsed; ToastGlyph.Visibility = face ? Visibility.Collapsed : Visibility.Visible;
             ToastGlyph.Text = t.Glyph; ToastGlyph.Foreground = new SolidColorBrush(t.Accent);
+            ToastFace.Visibility = face ? Visibility.Visible : Visibility.Collapsed;
+            if (face)
+            {
+                var eyes = ThemeManager.IsLight && t.Accent == Colors.White ? Color.FromRgb(0x11, 0x11, 0x11) : t.Accent;
+                ToastFace.Foreground = new SolidColorBrush(eyes);
+                ToastFace.SetMood(t.Mood!.Value, true);
+                if (t.Mood is FaceMood.Excited or FaceMood.Surprised or FaceMood.Happy) ToastFace.Bounce();
+            }
             ToastIcon.Background = new SolidColorBrush(Color.FromArgb(46, t.Accent.R, t.Accent.G, t.Accent.B));
         }
         ToastTitle.Text = t.Title;
@@ -488,6 +538,7 @@ public partial class IslandWindow : Window
         ThemeManager.SetAccent(info.HasSession ? info.Accent : ThemeManager.DefaultAccent);
         if (_mode == Mode.Expanded) { UpdateMusicUi(); ResizeExpanded(); }
         else UpdateIdle(false);
+        if (trackChanged && info.Title.Length > 0) _brain.React(FaceMood.Happy, 1800);
         if (trackChanged && S.EnableMusic && info.Title.Length > 0 && _mode != Mode.Expanded)
             Post(new Toast { Key = "track", Glyph = "\uE8D6", Image = info.Art, Title = info.Title, Subtitle = info.Artist, Accent = info.Accent, DurationMs = 3500 });
     }
@@ -496,24 +547,26 @@ public partial class IslandWindow : Window
     {
         if (!S.EnableVolume) return;
         int pct = (int)Math.Round(v * 100);
+        if (muted) _brain.React(FaceMood.Closed, 1200); else if (pct >= 80) _brain.React(FaceMood.Surprised, 900);
         string glyph = muted || pct == 0 ? "\uE74F" : pct < 34 ? "\uE992" : pct < 67 ? "\uE993" : "\uE994";
         Post(new Toast
         {
             Key = "volume", Glyph = glyph, Title = muted ? "Звук выключен" : "Громкость", Subtitle = "",
-            Progress = muted ? 0 : v, Right = muted ? "" : pct + "%", Accent = Color.FromRgb(0x4C, 0xC2, 0xFF), DurationMs = 1600
+            Mood = muted ? FaceMood.Closed : pct >= 80 ? FaceMood.Surprised : (FaceMood?)null, Progress = muted ? 0 : v, Right = muted ? "" : pct + "%", Accent = Color.FromRgb(0x4C, 0xC2, 0xFF), DurationMs = 1600
         });
     }
 
     void OnMicMute(bool muted)
     {
         if (!S.EnableMic) return;
-        Post(new Toast { Key = "micmute", Glyph = muted ? "\uF781" : "\uE720", Title = muted ? "Микрофон выключен" : "Микрофон включён", Accent = muted ? Color.FromRgb(0xFF, 0x45, 0x3A) : Color.FromRgb(0x32, 0xD7, 0x4B), DurationMs = 1800 });
+        _brain.React(muted ? FaceMood.Closed : FaceMood.Happy, 1500);
+        Post(new Toast { Key = "micmute", Mood = muted ? FaceMood.Closed : FaceMood.Happy, Glyph = muted ? "\uF781" : "\uE720", Title = muted ? "Микрофон выключен" : "Микрофон включён", Accent = muted ? Color.FromRgb(0xFF, 0x45, 0x3A) : Color.FromRgb(0x32, 0xD7, 0x4B), DurationMs = 1800 });
     }
 
     void OnMicUsage()
     {
         var m = AppServices.MicUsage;
-        if (m.Active) Post(new Toast { Key = "mic", Glyph = "\uE720", Title = "Микрофон используется", Subtitle = m.App ?? "", Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 2600 });
+        if (m.Active) Post(new Toast { Key = "mic", Mood = FaceMood.Alert, Glyph = "\uE720", Title = "Микрофон используется", Subtitle = m.App ?? "", Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 2600 });
         UpdateIdle(false);
     }
 
@@ -521,22 +574,24 @@ public partial class IslandWindow : Window
     {
         if (!S.EnableBattery) return;
         var b = AppServices.Battery; double p = b.Percent / 100.0;
+        if (k == BatteryEventKind.PluggedIn || k == BatteryEventKind.Full) _brain.React(FaceMood.Happy, 2500);
         var green = Color.FromRgb(0x32, 0xD7, 0x4B);
         switch (k)
         {
-            case BatteryEventKind.PluggedIn: Post(new Toast { Key = "bat", Glyph = "\uE83E", Title = "Зарядка подключена", Subtitle = "Идёт зарядка", Progress = p, Right = b.Percent + "%", Accent = green, DurationMs = 3200, Pulse = true }); break;
+            case BatteryEventKind.PluggedIn: Post(new Toast { Key = "bat", Glyph = "\uE83E", Mood = FaceMood.Happy, Title = "Зарядка подключена", Subtitle = "Идёт зарядка", Progress = p, Right = b.Percent + "%", Accent = green, DurationMs = 3200, Pulse = true }); break;
             case BatteryEventKind.Unplugged: Post(new Toast { Key = "bat", Glyph = "\uE83F", Title = "Зарядка отключена", Subtitle = "Работа от батареи", Progress = p, Right = b.Percent + "%", Accent = Colors.White, DurationMs = 2800 }); break;
-            case BatteryEventKind.Low: Post(new Toast { Key = "bat", Glyph = "\uE850", Title = "Низкий заряд батареи", Subtitle = "Подключите зарядное устройство", Progress = p, Right = b.Percent + "%", Accent = Color.FromRgb(0xFF, 0x45, 0x3A), DurationMs = 7000, Urgent = true, Shake = true }); break;
-            case BatteryEventKind.Full: Post(new Toast { Key = "bat", Glyph = "\uE83E", Title = "Батарея заряжена", Progress = 1, Right = "100%", Accent = green, DurationMs = 3500 }); break;
+            case BatteryEventKind.Low: Post(new Toast { Key = "bat", Glyph = "\uE850", Mood = FaceMood.Tired, Title = "Низкий заряд батареи", Subtitle = "Подключите зарядное устройство", Progress = p, Right = b.Percent + "%", Accent = Color.FromRgb(0xFF, 0x45, 0x3A), DurationMs = 7000, Urgent = true, Shake = true }); break;
+            case BatteryEventKind.Full: Post(new Toast { Key = "bat", Glyph = "\uE83E", Mood = FaceMood.Happy, Title = "Батарея заряжена", Progress = 1, Right = "100%", Accent = green, DurationMs = 3500 }); break;
         }
     }
 
     void OnNotification(NotificationItem n)
     {
         if (!S.EnableNotifications) return;
+        _brain.React(FaceMood.Surprised, 1600);
         Post(new Toast
         {
-            Key = "", Glyph = "\uEA8F", Image = n.Icon,
+            Key = "", Glyph = "\uEA8F", Image = n.Icon, Mood = FaceMood.Surprised,
             Title = n.Title.Length > 0 ? n.Title : n.App,
             Subtitle = n.Title.Length > 0 ? (n.Body.Length > 0 ? n.Body : n.App) : "",
             Accent = Colors.White, DurationMs = S.NotificationSeconds * 1000
@@ -586,6 +641,7 @@ public partial class IslandWindow : Window
             }
             if (string.IsNullOrWhiteSpace(text)) return;
             AddClip(text);
+            _brain.React(FaceMood.Focused, 900);
             string one = text.Replace("\r", " ").Replace("\n", " ").Trim();
             Post(ClipToast("Скопировано", one.Length > 70 ? one[..70] + "…" : one));
             if (_mode == Mode.Expanded) { UpdateClipUi(); ResizeExpanded(); }
@@ -607,7 +663,8 @@ public partial class IslandWindow : Window
     {
         if (!S.EnableTimer) return;
         var t = AppServices.Timer;
-        Post(new Toast { Key = "timer", Glyph = "\uE916", Title = t.Mode == TimerMode.Countdown ? "Таймер запущен" : "Секундомер запущен", Subtitle = t.Mode == TimerMode.Countdown ? Fmt(t.Total) : "", Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 1800 });
+        _brain.React(FaceMood.Focused, 1500);
+        Post(new Toast { Key = "timer", Mood = FaceMood.Focused, Glyph = "\uE916", Title = t.Mode == TimerMode.Countdown ? "Таймер запущен" : "Секундомер запущен", Subtitle = t.Mode == TimerMode.Countdown ? Fmt(t.Total) : "", Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 1800 });
     }
 
     void OnTimerTick()
@@ -619,7 +676,8 @@ public partial class IslandWindow : Window
     {
         if (!S.EnableTimer) return;
         System.Media.SystemSounds.Exclamation.Play();
-        Post(new Toast { Key = "timer", Glyph = "\uE916", Title = "Таймер завершён", Subtitle = Fmt(AppServices.Timer.Total), Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 8000, Urgent = true, Shake = true });
+        _brain.React(FaceMood.Excited, 3500);
+        Post(new Toast { Key = "timer", Glyph = "\uE916", Mood = FaceMood.Excited, Title = "Таймер завершён", Subtitle = Fmt(AppServices.Timer.Total), Accent = Color.FromRgb(0xFF, 0x9F, 0x0A), DurationMs = 8000, Urgent = true, Shake = true });
     }
 
     void BuildPresets()
@@ -664,6 +722,16 @@ public partial class IslandWindow : Window
         _userHidden = false; ApplyVisibility();
         Hold = true;
         if (_mode != Mode.Expanded) SetMode(Mode.Expanded);
+    }
+
+    /// Проверка настроения из настроек: капсула возвращается в покой и показывает реакцию.
+    public void TestFaceMood(FaceMood m)
+    {
+        Hold = false;
+        _userHidden = false; ApplyVisibility();
+        if (_mode == Mode.Expanded || _mode == Mode.Toast) SetMode(Mode.Idle);
+        _brain.Poke();
+        _brain.React(m, 3500);
     }
 
     public void ReleaseHold()
@@ -752,5 +820,5 @@ public partial class IslandWindow : Window
     async void Prev_Click(object sender, RoutedEventArgs e) => await AppServices.Media.PrevAsync();
 
     public void ShowToastPublic(string title, string sub) =>
-        Post(new Toast { Key = "info", Glyph = "\uE946", Title = title, Subtitle = sub, Accent = Color.FromRgb(0x4C, 0xC2, 0xFF), DurationMs = 3500 });
+        Post(new Toast { Key = "info", Mood = FaceMood.Happy, Glyph = "\uE946", Title = title, Subtitle = sub, Accent = Color.FromRgb(0x4C, 0xC2, 0xFF), DurationMs = 3500 });
 }

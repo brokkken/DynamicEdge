@@ -75,6 +75,20 @@ public partial class SettingsWindow : Window
         SettingsService.NotifyChanged();
     }
 
+    void Mood_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).Tag is string s && Enum.TryParse<FaceMood>(s, out var m))
+            ((App)Application.Current).Island?.TestFaceMood(m);
+    }
+
+    void ResetFace_Click(object sender, RoutedEventArgs e)
+    {
+        var d = new AppSettings(); var s = SettingsService.Current;
+        s.FaceEnabled = d.FaceEnabled; s.FaceFollowCursor = d.FaceFollowCursor; s.FaceDance = d.FaceDance;
+        s.FaceInToasts = d.FaceInToasts; s.FaceSleepMinutes = d.FaceSleepMinutes; s.FaceSize = d.FaceSize; s.FaceColor = d.FaceColor;
+        Rebind();
+    }
+
     void ResetShape_Click(object sender, RoutedEventArgs e)
     {
         var d = new AppSettings(); var s = SettingsService.Current;
