@@ -8,6 +8,9 @@
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         FontFamily="Segoe UI Variable Text, Segoe UI" TextOptions.TextFormattingMode="Ideal">
   <Grid x:Name="Shell">
+    <local:Pet x:Name="BelowPet" HorizontalAlignment="Center" VerticalAlignment="Top" Visibility="Collapsed" Opacity="0" IsHitTestVisible="False">
+      <local:Pet.RenderTransform><TranslateTransform x:Name="BelowShift"/></local:Pet.RenderTransform>
+    </local:Pet>
     <Border x:Name="Capsule" Width="120" Height="34" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,6,0,0"
             Background="{DynamicResource CapsuleBg}" BorderBrush="{DynamicResource CapsuleBorder}" BorderThickness="1"
             CornerRadius="17" ClipToBounds="True" RenderTransformOrigin="0.5,0"
@@ -29,6 +32,7 @@
             <Ellipse x:Name="MicDot" Width="8" Height="8" Fill="#FFFF9F0A" Margin="0,0,8,0" Visibility="Collapsed"/>
             <Border x:Name="IdleArt" Width="20" Height="20" CornerRadius="10" Margin="0,0,8,0" Visibility="Collapsed"/>
             <local:Face x:Name="IdleFace" Margin="0,0,8,0" Visibility="Collapsed"/>
+            <local:Pet x:Name="IdlePet" Margin="0,0,8,0" Visibility="Collapsed"/>
             <local:EqBars x:Name="IdleBars" Margin="0,0,8,0" Visibility="Collapsed"/>
             <StackPanel x:Name="IdleMon" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed"/>
             <TextBlock x:Name="IdleText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
@@ -47,6 +51,7 @@
               <Image x:Name="ToastImg" Margin="5" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
               <TextBlock x:Name="ToastGlyph" FontFamily="{StaticResource IconFont}" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               <local:Face x:Name="ToastFace" Unit="0.9" Visibility="Collapsed"/>
+              <local:Pet x:Name="ToastPet" Unit="0.85" Visibility="Collapsed"/>
             </Grid>
           </Border>
           <StackPanel Grid.Column="1" VerticalAlignment="Center">

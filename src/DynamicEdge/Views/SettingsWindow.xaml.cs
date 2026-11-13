@@ -99,7 +99,7 @@ public partial class SettingsWindow : Window
     {
         var d = new AppSettings(); var s = SettingsService.Current;
         s.FaceEnabled = d.FaceEnabled; s.FaceFollowCursor = d.FaceFollowCursor; s.FaceDance = d.FaceDance;
-        s.FaceInToasts = d.FaceInToasts; s.FaceSleepMinutes = d.FaceSleepMinutes; s.FaceSize = d.FaceSize; s.FaceColor = d.FaceColor;
+        s.PetKind = d.PetKind; s.PetPlacement = d.PetPlacement; s.FaceInToasts = d.FaceInToasts; s.FaceSleepMinutes = d.FaceSleepMinutes; s.FaceSize = d.FaceSize; s.FaceColor = d.FaceColor;
         Rebind();
     }
 

@@ -171,8 +171,7 @@ public partial class IslandWindow : Window
         ExpLayer.Width = S.ExpandedWidth - 32;
         ApplyFeatureSettings();
         BuildPresets();
-        IdleFace.Unit = S.FaceSize * S.IdleHeight / 34.0;
-        if (S.FaceEnabled) _brain.Start(); else _brain.Stop();
+        ApplyPetSettings();
         bool needIdle = S.IdleShowClock || S.IdleShowBattery;
         if (needIdle && !_idleTimer.IsEnabled) _idleTimer.Start(); else if (!needIdle && _idleTimer.IsEnabled) _idleTimer.Stop();
         PositionWindow();
@@ -273,7 +272,11 @@ public partial class IslandWindow : Window
                 new DoubleAnimation(0, S.ShadowStrength, Dur(260)) { FillBehavior = FillBehavior.Stop });
     }
 
-    void Capsule_SizeChanged(object sender, SizeChangedEventArgs e) => Capsule.CornerRadius = new CornerRadius(Math.Min(e.NewSize.Height / 2, S.CornerRadiusMax));
+    void Capsule_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        Capsule.CornerRadius = new CornerRadius(Math.Min(e.NewSize.Height / 2, S.CornerRadiusMax));
+        PositionBelowPet();
+    }
 
     void CrossFade(FrameworkElement target)
     {
@@ -321,6 +324,7 @@ public partial class IslandWindow : Window
         _mode = m;
         if (m != Mode.Expanded) _page = Page.Home;
         _brain.Hover = m == Mode.Hover;
+        UpdateBelowPet();
         _collapseTimer.Stop(); _sysTimer.Stop(); _progTimer.Stop();
         double w, h; FrameworkElement target;
         switch (m)
@@ -441,7 +445,9 @@ public partial class IslandWindow : Window
             IdleArt.Visibility = Visibility.Visible;
         }
         else IdleArt.Visibility = Visibility.Collapsed;
-        IdleFace.Visibility = S.FaceEnabled ? Visibility.Visible : Visibility.Collapsed;
+        bool pets = PetsOn;
+        IdleFace.Visibility = S.FaceEnabled && !pets ? Visibility.Visible : Visibility.Collapsed;
+        IdlePet.Visibility = S.FaceEnabled && pets && !BelowMode ? Visibility.Visible : Visibility.Collapsed;
         bool bars = music && S.IdleShowBars && !(S.FaceEnabled && S.FaceDance);
         IdleBars.Visibility = bars ? Visibility.Visible : Visibility.Collapsed;
         IdleBars.IsActive = bars && mi.Playing;
@@ -455,7 +461,7 @@ public partial class IslandWindow : Window
 
         // отступы только между видимыми элементами, чтобы содержимое всегда было по центру
         bool first = true;
-        foreach (FrameworkElement el in new FrameworkElement[] { MicDot, IdleArt, IdleFace, IdleBars, IdleMon, IdleText })
+        foreach (FrameworkElement el in new FrameworkElement[] { MicDot, IdleArt, IdleFace, IdlePet, IdleBars, IdleMon, IdleText })
         {
             if (el.Visibility != Visibility.Visible) continue;
             el.Margin = new Thickness(first ? 0 : 8, 0, 0, 0);
@@ -519,7 +525,7 @@ public partial class IslandWindow : Window
         if (t.Image != null)
         {
             ToastImg.Source = t.Image; ToastImg.Visibility = Visibility.Visible; ToastGlyph.Visibility = Visibility.Collapsed;
-            ToastFace.Visibility = Visibility.Collapsed;
+            ToastFace.Visibility = Visibility.Collapsed; ToastPet.Visibility = Visibility.Collapsed;
             ToastIcon.Background = (Brush)FindResource("ChipBg");
         }
         else
@@ -527,13 +533,21 @@ public partial class IslandWindow : Window
             bool face = S.FaceEnabled && S.FaceInToasts && t.Mood.HasValue;
             ToastImg.Visibility = Visibility.Collapsed; ToastGlyph.Visibility = face ? Visibility.Collapsed : Visibility.Visible;
             ToastGlyph.Text = t.Glyph; ToastGlyph.Foreground = new SolidColorBrush(t.Accent);
-            ToastFace.Visibility = face ? Visibility.Visible : Visibility.Collapsed;
-            if (face)
+            bool petT = PetsOn;
+            ToastFace.Visibility = face && !petT ? Visibility.Visible : Visibility.Collapsed;
+            ToastPet.Visibility = face && petT ? Visibility.Visible : Visibility.Collapsed;
+            if (face && petT)
+            {
+                ToastPet.SetSpecies(S.PetKind);
+                ToastPet.ApplyMood(t.Mood!.Value, true);
+                if (t.Mood is FaceMood.Excited or FaceMood.Surprised or FaceMood.Message or FaceMood.Happy) ToastPet.Eyes.Bounce();
+            }
+            else if (face)
             {
                 var eyes = ThemeManager.IsLight && t.Accent == Colors.White ? Color.FromRgb(0x11, 0x11, 0x11) : t.Accent;
                 ToastFace.Foreground = new SolidColorBrush(eyes);
                 ToastFace.SetMood(t.Mood!.Value, true);
-                if (t.Mood is FaceMood.Excited or FaceMood.Surprised or FaceMood.Happy) ToastFace.Bounce();
+                if (t.Mood is FaceMood.Excited or FaceMood.Surprised or FaceMood.Message or FaceMood.Happy) ToastFace.Bounce();
             }
             ToastIcon.Background = new SolidColorBrush(Color.FromArgb(46, t.Accent.R, t.Accent.G, t.Accent.B));
         }
@@ -616,10 +630,10 @@ public partial class IslandWindow : Window
     void OnNotification(NotificationItem n)
     {
         if (!S.EnableNotifications) return;
-        _brain.React(FaceMood.Surprised, 1600);
+        _brain.React(FaceMood.Message, 1800);
         Post(new Toast
         {
-            Key = "", Glyph = "\uEA8F", Image = n.Icon, Mood = FaceMood.Surprised,
+            Key = "", Glyph = "\uEA8F", Image = n.Icon, Mood = FaceMood.Message,
             Title = n.Title.Length > 0 ? n.Title : n.App,
             Subtitle = n.Title.Length > 0 ? (n.Body.Length > 0 ? n.Body : n.App) : "",
             Accent = Colors.White, DurationMs = S.NotificationSeconds * 1000

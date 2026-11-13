@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using DynamicEdge.Core;
@@ -116,9 +117,74 @@ public partial class IslandWindow
         if (resize && _mode == Mode.Expanded) { ResizeExpanded(); if (p == Page.Home) SampleSys(); }
     }
 
+    // ------------------------------------------------------------------ питомцы
+    FaceMood _petMood = FaceMood.Neutral;
+    bool _petMusic, _belowShown;
+
+    static bool PetsOn => S.PetKind != "Eyes";
+    static bool BelowMode => S.FaceEnabled && PetsOn && S.PetPlacement == "Below";
+
+    /// Выбирает, кто «живёт» в капсуле: классические глазки или питомец (внутри капсулы или выглядывает снизу).
+    void ApplyPetSettings()
+    {
+        bool pets = PetsOn, below = BelowMode;
+        double unit = S.FaceSize * S.IdleHeight / 34.0;
+        IdleFace.Unit = unit;
+        IdlePet.Unit = unit * 0.78;
+        BelowPet.Unit = unit * S.Scale;
+        IdlePet.SetSpecies(S.PetKind); BelowPet.SetSpecies(S.PetKind); ToastPet.SetSpecies(S.PetKind);
+
+        Pet? active = !pets ? null : below ? BelowPet : IdlePet;
+        BelowPet.Visibility = below ? Visibility.Visible : Visibility.Collapsed;
+        if (!below) { BelowPet.BeginAnimation(OpacityProperty, null); BelowPet.Opacity = 0; _belowShown = false; }
+
+        _brain.SetTarget(active != null ? active.Eyes : IdleFace);
+        _brain.FixedColor = pets ? Pet.EyeColor(S.PetKind) : null;
+        _brain.StateChanged = active == null ? null : (m, music) =>
+        {
+            active.ApplyState(m, music);
+            _petMood = m; _petMusic = music;
+            UpdateBelowPet();
+        };
+        if (S.FaceEnabled) _brain.Start(); else _brain.Stop();
+        PositionBelowPet();
+        UpdateBelowPet();
+    }
+
+    /// Питомец под капсулой: справа, верхняя часть прячется за капсулой.
+    void PositionBelowPet()
+    {
+        if (!BelowMode) return;
+        double capH = Capsule.ActualHeight > 0 ? Capsule.ActualHeight : S.IdleHeight;
+        double capW = Capsule.ActualWidth > 0 ? Capsule.ActualWidth : 120;
+        double dx = capW * S.Scale / 2 - 44 * BelowPet.Unit / 2 - 12 * S.Scale;
+        BelowPet.Margin = new Thickness(2 * dx, 6 + capH * S.Scale - 9 * S.Scale, 0, 0);
+    }
+
+    /// Выглядывает, когда в капсуле есть чем заняться (музыка, событие, наведение, сон, низкий заряд), и прячется обратно.
+    void UpdateBelowPet()
+    {
+        if (!BelowMode) return;
+        bool notable = _petMusic || _petMood != FaceMood.Neutral;
+        bool show = notable && (_mode == Mode.Idle || _mode == Mode.Hover) && !_userHidden && !_gameMon;
+        if (show == _belowShown) return;
+        _belowShown = show;
+        double h = 34 * BelowPet.Unit;
+        if (!S.Animations)
+        {
+            BelowShift.BeginAnimation(TranslateTransform.YProperty, null); BelowShift.Y = show ? 0 : -h;
+            BelowPet.BeginAnimation(OpacityProperty, null); BelowPet.Opacity = show ? 1 : 0;
+            return;
+        }
+        BelowPet.BeginAnimation(OpacityProperty, new DoubleAnimation(show ? 1 : 0, Dur(show ? 200 : 160)));
+        BelowShift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(show ? 0 : -h, Dur(show ? 380 : 240))
+        { EasingFunction = show ? new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 } : new CubicEase { EasingMode = EasingMode.EaseIn } });
+    }
+
     // ------------------------------------------------------------------ высота окна и прокрутка
     /// Высота окна под капсулу заданной высоты: запас сверху, на тень и на «перелёт» пружины.
-    double WindowHeightFor(double capsuleH) => Math.Max(120, 6 + capsuleH * S.Scale * 1.08 + 46);
+    double WindowHeightFor(double capsuleH) =>
+        Math.Max(120, 6 + capsuleH * S.Scale * 1.08 + 46 + (BelowMode ? 36 * S.FaceSize * S.IdleHeight / 34.0 * S.Scale : 0));
 
     void SetWindowHeight(double need)
     {
@@ -309,7 +375,7 @@ public partial class IslandWindow
         IdleMon.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         if (_gameMon)
         {
-            MicDot.Visibility = Visibility.Collapsed; IdleArt.Visibility = Visibility.Collapsed; IdleFace.Visibility = Visibility.Collapsed;
+            MicDot.Visibility = Visibility.Collapsed; IdleArt.Visibility = Visibility.Collapsed; IdleFace.Visibility = Visibility.Collapsed; IdlePet.Visibility = Visibility.Collapsed;
             IdleBars.Visibility = Visibility.Collapsed; IdleText.Visibility = Visibility.Collapsed;
         }
         if (on && !_monTimer.IsEnabled) { _monTimer.Start(); SampleSys(); }

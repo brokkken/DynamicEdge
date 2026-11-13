@@ -12,7 +12,7 @@ namespace DynamicEdge.Views;
 public sealed class FaceBrain
 {
     static AppSettings S => SettingsService.Current;
-    readonly Face _face;
+    Face _face;
     readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(70) };
     readonly DispatcherTimer _blink = new();
     readonly Random _rnd = new();
@@ -24,7 +24,21 @@ public sealed class FaceBrain
     double _lx, _ly, _level, _wx, _wy;
     DateTime _nextWander = DateTime.MinValue;
 
+    bool _musicNow, _lastMusic;
     public bool Hover { get; set; }
+    /// Фиксированный цвет глаз (питомцы), иначе цвет из настроек.
+    public Color? FixedColor { get; set; }
+    /// Уведомление о смене настроения/музыки (для аксессуаров питомца).
+    public Action<FaceMood, bool>? StateChanged { get; set; }
+
+    /// Переключает, каким глазам управляет «характер» (классические глазки или глаза питомца).
+    public void SetTarget(Face f)
+    {
+        if (ReferenceEquals(f, _face)) return;
+        _face.SetLevel(0); _face.Look(0, 0);
+        _face = f;
+        _shown = (FaceMood)(-1); _colorSet = false; _lastMusic = !_musicNow;
+    }
 
     public FaceBrain(Face face)
     {
@@ -52,7 +66,7 @@ public sealed class FaceBrain
     {
         if (!S.FaceEnabled) return;
         _react = m; _reactUntil = DateTime.UtcNow.AddMilliseconds(ms);
-        if (m is FaceMood.Surprised or FaceMood.Happy or FaceMood.Excited && _face.IsVisible) _face.Bounce();
+        if (m is FaceMood.Surprised or FaceMood.Message or FaceMood.Happy or FaceMood.Excited && _face.IsVisible) _face.Bounce();
         Resolve();
     }
 
@@ -74,12 +88,12 @@ public sealed class FaceBrain
         _ => ThemeManager.IsLight ? Color.FromRgb(0x11, 0x11, 0x11) : Colors.White
     };
 
-    static Color EyeColor(FaceMood m) => m switch
+    Color EyeColor(FaceMood m) => FixedColor ?? (m switch
     {
         FaceMood.Tired => Color.FromRgb(0xFF, 0x45, 0x3A),
         FaceMood.Alert => Color.FromRgb(0xFF, 0x9F, 0x0A),
         _ => BaseColor()
-    };
+    });
 
     void Resolve()
     {
@@ -94,7 +108,9 @@ public sealed class FaceBrain
 
         var color = EyeColor(m);
         if (!_colorSet || color != _lastColor) { _colorSet = true; _lastColor = color; _face.Foreground = new SolidColorBrush(color); }
-        if (m != _shown) { _shown = m; _face.SetMood(m); }
+        bool changed = m != _shown;
+        if (changed) { _shown = m; _face.SetMood(m); }
+        if (changed || _musicNow != _lastMusic) { _lastMusic = _musicNow; StateChanged?.Invoke(m, _musicNow); }
     }
 
     void Tick()
@@ -107,6 +123,7 @@ public sealed class FaceBrain
 
             var media = AppServices.Media.Current;
             bool music = S.FaceDance && S.EnableMusic && media.HasSession && media.Playing;
+            _musicNow = music;
 
             // сон: нет ввода пользователя заданное время и не играет музыка
             double idle = Native.IdleSeconds();

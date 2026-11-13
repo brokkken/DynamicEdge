@@ -7,7 +7,7 @@ using DynamicEdge.Core;
 
 namespace DynamicEdge.Views;
 
-public enum FaceMood { Neutral, Happy, Surprised, Sleeping, Tired, Alert, Excited, Focused, Closed }
+public enum FaceMood { Neutral, Happy, Surprised, Sleeping, Tired, Alert, Excited, Focused, Closed, Message }
 
 /// Глазки: два овала, которые моргают, смотрят по сторонам, меняют форму под настроение и «танцуют» под уровень звука.
 public partial class Face : UserControl
@@ -19,6 +19,10 @@ public partial class Face : UserControl
     public double Unit { get => (double)GetValue(UnitProperty); set => SetValue(UnitProperty, value); }
 
     public FaceMood Mood { get; private set; } = FaceMood.Neutral;
+    /// Множитель амплитуды взгляда (для мелких глаз питомцев).
+    public double LookGain { get; set; } = 1.0;
+
+    public void SetZBrush(Brush b) { Z1.Foreground = b; Z2.Foreground = b; }
 
     public Face() { InitializeComponent(); ApplyUnit(); }
 
@@ -52,7 +56,8 @@ public partial class Face : UserControl
         switch (m)
         {
             case FaceMood.Happy: Shape(1, 1, 0, true, ms); break;
-            case FaceMood.Surprised: Shape(1.25, 1.3, 0, false, ms); break;
+            case FaceMood.Surprised:
+            case FaceMood.Message: Shape(1.25, 1.3, 0, false, ms); break;
             case FaceMood.Sleeping:
             case FaceMood.Closed: Shape(1.15, 0.1, 0, false, ms); break;
             case FaceMood.Tired: Shape(1, 0.5, 14, false, ms); break;
@@ -67,8 +72,8 @@ public partial class Face : UserControl
     /// Куда смотрят глазки: x, y в диапазоне -1..1.
     public void Look(double x, double y)
     {
-        LookL.X = LookR.X = x * 3.0;
-        LookL.Y = LookR.Y = y * 2.2;
+        LookL.X = LookR.X = x * 3.0 * LookGain;
+        LookL.Y = LookR.Y = y * 2.2 * LookGain;
     }
 
     /// Уровень звука 0..1: глазки подпрыгивают и «дышат».

@@ -62,7 +62,9 @@ public sealed class AppSettings
     public bool FaceInToasts { get; set; } = true;       // настроение в уведомлениях о событиях
     public int FaceSleepMinutes { get; set; } = 3;       // 0 = никогда не засыпают
     public double FaceSize { get; set; } = 1.0;
-    public string FaceColor { get; set; } = "White";     // White | Accent | Cyan | Green | Pink | Orange
+    public string FaceColor { get; set; } = "White";     // цвет классических глазок
+    public string PetKind { get; set; } = "Penguin";     // Eyes | Penguin | Hedgehog | Jelly
+    public string PetPlacement { get; set; } = "Inside"; // Inside | Below (выглядывает из-под капсулы)     // White | Accent | Cyan | Green | Pink | Orange
 
     // --- Закрепление, игры, шрифт ---
     public bool Pinned { get; set; } = true;             // false = капсулу можно перетаскивать
@@ -135,6 +137,8 @@ public static class SettingsService
         s.AnimSpeed = Math.Clamp(s.AnimSpeed, 0.5, 2.0);
         if (s.AnimStyle != "Smooth" && s.AnimStyle != "Instant") s.AnimStyle = "Spring";
 
+        if (s.PetKind != "Eyes" && s.PetKind != "Hedgehog" && s.PetKind != "Jelly") s.PetKind = "Penguin";
+        if (s.PetPlacement != "Below") s.PetPlacement = "Inside";
         s.FaceSleepMinutes = Math.Clamp(s.FaceSleepMinutes, 0, 60);
         s.FaceSize = Math.Clamp(s.FaceSize, 0.6, 1.6);
         if (Array.IndexOf(new[] { "White", "Accent", "Cyan", "Green", "Pink", "Orange" }, s.FaceColor) < 0) s.FaceColor = "White";
