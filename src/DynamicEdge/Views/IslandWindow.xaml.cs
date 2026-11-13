@@ -235,6 +235,7 @@ public partial class IslandWindow : Window
     void AnimateSize(double w, double h, bool grow)
     {
         _curW = w; _curH = h;
+        GrowWindowIfNeeded(h);
         if (!S.Animations || S.AnimStyle == "Instant")
         {
             Capsule.BeginAnimation(WidthProperty, null); Capsule.BeginAnimation(HeightProperty, null);
@@ -346,8 +347,17 @@ public partial class IslandWindow : Window
     {
         // Collapsed-элемент измеряется как 0×0, поэтому для замера делаем его Hidden (он занимает место, но не рисуется)
         if (ExpLayer.Visibility == Visibility.Collapsed) ExpLayer.Visibility = Visibility.Hidden;
+        ExpScroll.MaxHeight = double.PositiveInfinity;
         ExpLayer.Measure(new Size(S.ExpandedWidth - 32, double.PositiveInfinity));
-        return (S.ExpandedWidth, Math.Max(80, ExpLayer.DesiredSize.Height + 36));
+        double cap = Math.Max(80, ExpLayer.DesiredSize.Height + 36);
+        double max = MaxCapsuleHeight();
+        if (cap > max)
+        {
+            cap = max;
+            // вкладки остаются сверху, содержимое под ними прокручивается
+            ExpScroll.MaxHeight = Math.Max(100, cap - 36 - ExpTabs.DesiredSize.Height);
+        }
+        return (S.ExpandedWidth, cap);
     }
 
     void ResizeExpanded() { var (w, h) = ExpandedSize(); AnimateSize(w, h, false); }

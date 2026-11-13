@@ -38,6 +38,7 @@ public partial class IslandWindow
 
     readonly DispatcherTimer _monTimer = new() { Interval = TimeSpan.FromMilliseconds(1500) };
     readonly DispatcherTimer _histTimer = new() { Interval = TimeSpan.FromSeconds(5) };
+    readonly DispatcherTimer _fitTimer = new() { Interval = TimeSpan.FromMilliseconds(1300) };
     readonly DispatcherTimer _layoutTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
     sealed class MonCard { public Border Root = null!; public TextBlock Value = null!; public ScaleTransform Bar = null!; }
@@ -49,6 +50,7 @@ public partial class IslandWindow
     {
         BuildMonitorCards();
         BuildMiniMon();
+        _fitTimer.Tick += (_, _) => { _fitTimer.Stop(); SetWindowHeight(WindowHeightFor(_curH)); };
         _monTimer.Tick += (_, _) => SampleSys();
         _histTimer.Tick += (_, _) =>
         {
@@ -109,8 +111,50 @@ public partial class IslandWindow
         TabStats.Opacity = p == Page.Stats ? 1 : 0.55;
         TabShelf.Opacity = p == Page.Shelf ? 1 : 0.55;
         if (p == Page.Stats) BuildStats(); else if (p == Page.Shelf) BuildShelf();
+        ExpScroll.ScrollToTop();
         UpdatePinUi();
         if (resize && _mode == Mode.Expanded) { ResizeExpanded(); if (p == Page.Home) SampleSys(); }
+    }
+
+    // ------------------------------------------------------------------ высота окна и прокрутка
+    /// Высота окна под капсулу заданной высоты: запас сверху, на тень и на «перелёт» пружины.
+    double WindowHeightFor(double capsuleH) => Math.Max(120, 6 + capsuleH * S.Scale * 1.08 + 46);
+
+    void SetWindowHeight(double need)
+    {
+        if (Math.Abs(Height - need) < 1) return;
+        Height = need;
+        PositionWindow();
+    }
+
+    /// Окно растёт сразу (до начала анимации), а сжимается позже, когда анимация закончилась.
+    void GrowWindowIfNeeded(double capsuleH)
+    {
+        double need = WindowHeightFor(capsuleH);
+        if (need > Height + 0.5) SetWindowHeight(need);
+        _fitTimer.Stop(); _fitTimer.Start();
+    }
+
+    /// Максимальная высота капсулы (в DIP до масштаба) так, чтобы она не выходила за рабочую область монитора.
+    double MaxCapsuleHeight()
+    {
+        var screens = WF.Screen.AllScreens;
+        var scr = S.Monitor >= 0 && S.Monitor < screens.Length ? screens[S.Monitor] : WF.Screen.PrimaryScreen ?? screens[0];
+        double sc = _winSc > 0 ? _winSc : 1;
+        double availPx = scr.WorkingArea.Bottom - (_winY + 6 * sc) - 16 * sc;
+        double cap = availPx / (sc * S.Scale * 1.08);
+        return Math.Clamp(cap, 260, 1400);
+    }
+
+    /// Колёсико: над блоком музыки или когда прокручивать нечего — громкость, иначе прокрутка содержимого.
+    void ExpScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        bool overMusic = _page == Page.Home && ExpMusicSection.Visibility == Visibility.Visible && ExpMusicSection.IsMouseOver;
+        if (overMusic || ExpScroll.ScrollableHeight <= 0.5)
+        {
+            AppServices.Output.ChangeVolume(e.Delta > 0 ? 0.02f : -0.02f);
+            e.Handled = true;
+        }
     }
 
     // ------------------------------------------------------------------ закрепление и перетаскивание

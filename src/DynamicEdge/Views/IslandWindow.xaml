@@ -68,7 +68,7 @@
           <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
           <StackPanel>
             <!-- Вкладки -->
-            <Grid Margin="0,0,0,12">
+            <Grid x:Name="ExpTabs" Margin="0,0,0,12">
               <StackPanel Orientation="Horizontal">
                 <Button x:Name="TabHome" Style="{StaticResource ChipBtn}" Margin="0" Content="Главная" Tag="Home" Click="Tab_Click"/>
                 <Button x:Name="TabStats" Style="{StaticResource ChipBtn}" Content="Итоги" Tag="Stats" Click="Tab_Click"/>
@@ -77,6 +77,12 @@
               <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" Width="28" Height="28" FontSize="13" HorizontalAlignment="Right" Content="&#xE718;" Click="Pin_Click"/>
             </Grid>
 
+            <ScrollViewer x:Name="ExpScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Margin="0,0,-12,0" Padding="0,0,12,0" Focusable="False" PreviewMouseWheel="ExpScroll_PreviewMouseWheel">
+              <ScrollViewer.Resources>
+                <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScrollBar}"/>
+              </ScrollViewer.Resources>
+              <StackPanel>
             <!-- ГЛАВНАЯ -->
             <StackPanel x:Name="HomePage">
               <StackPanel x:Name="ExpStack">
@@ -198,6 +204,8 @@
               <TextBlock x:Name="ShelfEmpty" Text="Перетащите ссылку из браузера на капсулу или нажмите «+ Из буфера»" FontSize="12" Foreground="{DynamicResource Fg2Brush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
               <WrapPanel x:Name="ShelfHost"/>
             </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
           </StackPanel>
         </Grid>
       </Grid>
