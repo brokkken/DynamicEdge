@@ -10,8 +10,17 @@
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
           <CheckBox Content="Запускать вместе с Windows" IsChecked="{Binding Autostart, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
-          <CheckBox Content="Прятать капсулу в полноэкранных играх и презентациях" IsChecked="{Binding HideInFullscreen, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
-          <CheckBox Content="Скрывать капсулу, когда нечего показывать" IsChecked="{Binding AutoHideIdle, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,18"/>
+          <TextBlock Text="В полноэкранных играх и презентациях" Margin="0,0,0,4"/>
+          <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding GameMode, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,4">
+            <ComboBoxItem Tag="Hide" Content="Скрывать капсулу"/>
+            <ComboBoxItem Tag="Monitor" Content="Показывать только мониторинг (CPU, RAM, GPU, диск)"/>
+            <ComboBoxItem Tag="Show" Content="Ничего не менять"/>
+          </ComboBox>
+          <TextBlock TextWrapping="Wrap" Opacity="0.65" FontSize="12" Margin="0,0,0,12"
+                     Text="Работает поверх игр в оконном и безрамочном режимах. Поверх «чистого» полноэкранного режима Windows рисовать не позволяет. FPS приложение не измеряет."/>
+          <CheckBox Content="Скрывать капсулу, когда нечего показывать" IsChecked="{Binding AutoHideIdle, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,10"/>
+          <CheckBox Content="Закрепить капсулу (отключите, чтобы перетаскивать её мышью)" IsChecked="{Binding Pinned, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,6"/>
+          <Button Content="Сбросить положение" Click="ResetPosition_Click" HorizontalAlignment="Left" Margin="0,0,0,18"/>
 
           <TextBlock Text="Монитор" FontWeight="SemiBold" Margin="0,0,0,4"/>
           <ComboBox x:Name="MonitorBox" SelectionChanged="Monitor_Changed" Margin="0,0,0,16"/>
@@ -52,6 +61,8 @@
     <TabItem Header="Внешний вид">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
+          <TextBlock Text="Шрифт" FontWeight="SemiBold" Margin="0,0,0,4"/>
+          <ComboBox x:Name="FontBox" IsEditable="True" Text="{Binding FontName, Mode=TwoWay, UpdateSourceTrigger=LostFocus, NotifyOnSourceUpdated=True}" DropDownClosed="FontBox_DropDownClosed" Margin="0,0,0,16"/>
           <TextBlock Text="Тема" FontWeight="SemiBold" Margin="0,0,0,4"/>
           <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Theme, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,16">
             <ComboBoxItem Tag="Dark" Content="Тёмная"/>
@@ -107,7 +118,10 @@
           <CheckBox Content="Название трека и исполнитель" IsChecked="{Binding IdleShowTrack, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
           <CheckBox Content="Таймер и секундомер" IsChecked="{Binding IdleShowTimer, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
           <CheckBox Content="Заряд батареи" IsChecked="{Binding IdleShowBattery, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
-          <CheckBox Content="Часы" IsChecked="{Binding IdleShowClock, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,18"/>
+          <CheckBox Content="Часы" IsChecked="{Binding IdleShowClock, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Погода (включите на вкладке «Сервисы»)" IsChecked="{Binding IdleShowWeather, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Раскладка клавиатуры (RU, EN…)" IsChecked="{Binding IdleShowLayout, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <CheckBox Content="Мониторинг: CPU, RAM, GPU, диск с мини-индикаторами" IsChecked="{Binding IdleShowMonitor, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,18"/>
           <TextBlock Text="Порядок блоков в развёрнутой панели" FontWeight="SemiBold" Margin="0,0,0,4"/>
           <TextBlock Text="Блоки, отключённые на вкладке «Функции», не показываются." Opacity="0.65" FontSize="12" Margin="0,0,0,8"/>
           <Grid Margin="0,0,0,18">
@@ -159,6 +173,30 @@
           <TextBlock TextWrapping="Wrap" Opacity="0.65" FontSize="12" Margin="0,0,0,16"
                      Text="Сами по себе глазки меняются так: пользуетесь компьютером — бодрые; навели курсор — радуются; играет музыка — пульсируют; микрофон включён — настороженные; низкий заряд — уставшие и красные; долго нет ввода — спят."/>
           <Button Content="Сбросить глазки по умолчанию" Click="ResetFace_Click" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+
+    <TabItem Header="Сервисы">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+          <TextBlock Text="Погода" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <CheckBox Content="Показывать погоду" IsChecked="{Binding WeatherEnabled, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,8"/>
+          <TextBlock Text="Город" Margin="0,0,0,4"/>
+          <TextBox Text="{Binding WeatherCity, Mode=TwoWay, UpdateSourceTrigger=LostFocus, NotifyOnSourceUpdated=True}" Margin="0,0,0,4"/>
+          <TextBlock TextWrapping="Wrap" Opacity="0.65" FontSize="12" Margin="0,0,0,20"
+                     Text="Данные: Open-Meteo (open-meteo.com). В сервис отправляется только название города. Значение применяется, когда вы уберёте курсор из поля."/>
+
+          <TextBlock Text="Тексты песен" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <CheckBox Content="Показывать текст песни в такт музыке" IsChecked="{Binding LyricsEnabled, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,4"/>
+          <TextBlock TextWrapping="Wrap" Opacity="0.65" FontSize="12" Margin="0,0,0,20"
+                     Text="Исполнитель, название и длительность трека отправляются в сервис lrclib.net, больше ничего. Если текста нет, строка не показывается."/>
+
+          <TextBlock Text="История прослушивания" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <CheckBox Content="Вести историю и итоги недели" IsChecked="{Binding HistoryEnabled, Mode=TwoWay, NotifyOnSourceUpdated=True}" Margin="0,0,0,4"/>
+          <TextBlock TextWrapping="Wrap" Opacity="0.65" FontSize="12" Margin="0,0,0,8"
+                     Text="Хранится только на этом компьютере (файл history.json рядом с настройками) и никуда не отправляется."/>
+          <Button Content="Удалить историю" Click="ClearHistory_Click" HorizontalAlignment="Left"/>
         </StackPanel>
       </ScrollViewer>
     </TabItem>

@@ -51,7 +51,7 @@ public partial class IslandWindow : Window
     readonly DispatcherTimer _leaveTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     readonly DispatcherTimer _collapseTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     readonly DispatcherTimer _sysTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
-    readonly DispatcherTimer _progTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    readonly DispatcherTimer _progTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
     readonly DispatcherTimer _watchTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     readonly DispatcherTimer _idleTimer = new() { Interval = TimeSpan.FromSeconds(15) };
     string _presetKey = "", _orderKey = "";
@@ -70,6 +70,7 @@ public partial class IslandWindow : Window
         _layers = new FrameworkElement[] { IdleLayer, ToastLayer, ExpLayer };
         _layerTarget = IdleLayer;
         _brain = new FaceBrain(IdleFace);
+        InitFeatures();
         ClipList.ItemsSource = _clips;
         SourceInitialized += OnSourceInitialized;
 
@@ -122,6 +123,7 @@ public partial class IslandWindow : Window
             int wPx = (int)Math.Round(Width * sc), hPx = (int)Math.Round(Height * sc);
             int x = b.X + (b.Width - wPx) / 2 + (int)Math.Round(S.OffsetX * sc);
             int y = b.Y + (int)Math.Round((S.OffsetY - 6) * sc);
+            _winX = x; _winY = y; _winW = wPx; _winSc = sc;
             Native.SetWindowPos(new WindowInteropHelper(this).Handle, Native.HWND_TOPMOST, x, y, wPx, hPx, Native.SWP_NOACTIVATE);
         }
         catch (Exception ex) { SettingsService.Log("Position: " + ex.Message); }
@@ -131,8 +133,9 @@ public partial class IslandWindow : Window
     {
         // скрытие при полноэкранных приложениях/играх/презентациях
         bool fs = false;
-        if (S.HideInFullscreen && Native.SHQueryUserNotificationState(out int st) == 0) fs = st is 2 or 3 or 4;
-        if (fs != _fsHidden) { _fsHidden = fs; ApplyVisibility(); }
+        if (S.GameMode != "Show" && Native.SHQueryUserNotificationState(out int st) == 0) fs = st is 2 or 3 or 4;
+        bool hide = UpdateGameState(fs);
+        if (hide != _fsHidden) { _fsHidden = hide; ApplyVisibility(); }
         // поддерживаем Topmost поверх других topmost-окон
         if (IsVisible) Native.SetWindowPos(new WindowInteropHelper(this).Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
         if (++_wd % 5 == 0) { AppServices.Output.RecheckDeviceAsync(); AppServices.Input.RecheckDeviceAsync(); }
@@ -166,6 +169,7 @@ public partial class IslandWindow : Window
         Capsule.Effect = S.ShadowStrength > 0.01 ? CapShadow : null;
         Capsule.CornerRadius = new CornerRadius(Math.Min(Capsule.ActualHeight / 2, S.CornerRadiusMax));
         ExpLayer.Width = S.ExpandedWidth - 32;
+        ApplyFeatureSettings();
         BuildPresets();
         IdleFace.Unit = S.FaceSize * S.IdleHeight / 34.0;
         if (S.FaceEnabled) _brain.Start(); else _brain.Stop();
@@ -312,7 +316,9 @@ public partial class IslandWindow : Window
     // ------------------------------------------------------------------ mode machine
     void SetMode(Mode m)
     {
+        if (_gameMon && m != Mode.Idle) return;
         _mode = m;
+        if (m != Mode.Expanded) _page = Page.Home;
         _brain.Hover = m == Mode.Hover;
         _collapseTimer.Stop(); _sysTimer.Stop(); _progTimer.Stop();
         double w, h; FrameworkElement target;
@@ -320,9 +326,9 @@ public partial class IslandWindow : Window
         {
             case Mode.Toast: target = ToastLayer; w = 372; h = 70; break;
             case Mode.Expanded:
-                target = ExpLayer; RefreshExpanded();
+                target = ExpLayer; RefreshExpanded(); ShowPage(_page, false);
                 (w, h) = ExpandedSize();
-                if (S.EnableSysInfo) { ApplyTempColumn(AppServices.SysInfo.Sample().TempC.HasValue); _sysTimer.Interval = TimeSpan.FromMilliseconds(600); _sysTimer.Start(); }
+                if (S.EnableSysInfo) { _sysTimer.Interval = TimeSpan.FromMilliseconds(600); _sysTimer.Start(); }
                 _progTimer.Start(); UpdateProgress();
                 break;
             default:
@@ -348,6 +354,11 @@ public partial class IslandWindow : Window
 
     void Capsule_Click(object sender, MouseButtonEventArgs e)
     {
+        if (_dragStart != null)
+        {
+            Capsule.ReleaseMouseCapture(); _dragStart = null;
+            if (_dragged) { _dragged = false; FinishDrag(); return; }
+        }
         Hold = false;
         if (_mode == Mode.Expanded) SetMode(Mode.Idle);
         else { _hoverTimer.Stop(); SetMode(Mode.Expanded); }
@@ -372,7 +383,7 @@ public partial class IslandWindow : Window
     // ------------------------------------------------------------------ idle layer
     bool MusicOn => S.EnableMusic && AppServices.Media.Current.HasSession;
     bool TimerOn => S.EnableTimer && AppServices.Timer.Running;
-    bool NothingToShow => !S.FaceEnabled && !(MusicOn && (S.IdleShowArt || S.IdleShowBars)) && BuildIdleText(false).Length == 0 && !(S.EnableMic && AppServices.MicUsage.Active);
+    bool NothingToShow => !S.FaceEnabled && !IdleMonWanted && !(MusicOn && (S.IdleShowArt || S.IdleShowBars)) && BuildIdleText(false).Length == 0 && !(S.EnableMic && AppServices.MicUsage.Active);
 
     void ApplyIdleAutoHide()
     {
@@ -394,6 +405,8 @@ public partial class IslandWindow : Window
             if (track) parts.Add(trackText);
             if (TimerOn) parts.Add(Fmt(AppServices.Timer.Display));
             if (S.EnableBattery && AppServices.Battery.HasBattery) parts.Add($"{AppServices.Battery.Percent}%");
+            if (AppServices.Weather.Current is { } wh) parts.Add($"{wh.Temp:0}°");
+            if (_layout.Length > 0) parts.Add(_layout);
             parts.Add(DateTime.Now.ToString("HH:mm"));
         }
         else
@@ -401,6 +414,8 @@ public partial class IslandWindow : Window
             if (S.IdleShowTrack && track) parts.Add(trackText);
             if (S.IdleShowTimer && TimerOn) parts.Add(Fmt(AppServices.Timer.Display));
             if (S.IdleShowBattery && S.EnableBattery && AppServices.Battery.HasBattery) parts.Add($"{AppServices.Battery.Percent}%");
+            if (S.IdleShowWeather && AppServices.Weather.Current is { } wi) parts.Add($"{wi.Temp:0}°");
+            if (S.IdleShowLayout && _layout.Length > 0) parts.Add(_layout);
             if (S.IdleShowClock) parts.Add(DateTime.Now.ToString("HH:mm"));
         }
         return string.Join("  •  ", parts);
@@ -426,9 +441,11 @@ public partial class IslandWindow : Window
         IdleText.Text = text;
         IdleText.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
+        ApplyIdleMon();
+
         // отступы только между видимыми элементами, чтобы содержимое всегда было по центру
         bool first = true;
-        foreach (FrameworkElement el in new FrameworkElement[] { MicDot, IdleArt, IdleFace, IdleBars, IdleText })
+        foreach (FrameworkElement el in new FrameworkElement[] { MicDot, IdleArt, IdleFace, IdleBars, IdleMon, IdleText })
         {
             if (el.Visibility != Visibility.Visible) continue;
             el.Margin = new Thickness(first ? 0 : 8, 0, 0, 0);
@@ -454,7 +471,7 @@ public partial class IslandWindow : Window
     // ------------------------------------------------------------------ toast queue
     void Post(Toast t)
     {
-        if (_userHidden || _fsHidden) return;
+        if (_userHidden || _fsHidden || _gameMon) return;
         if (_mode == Mode.Expanded && !t.Urgent) return;
 
         if (_mode == Mode.Toast && _current != null && t.Key.Length > 0 && _current.Key == t.Key)
@@ -536,6 +553,7 @@ public partial class IslandWindow : Window
     void OnMedia(MediaInfo info, bool trackChanged)
     {
         ThemeManager.SetAccent(info.HasSession ? info.Accent : ThemeManager.DefaultAccent);
+        LoadLyrics(info);
         if (_mode == Mode.Expanded) { UpdateMusicUi(); ResizeExpanded(); }
         else UpdateIdle(false);
         if (trackChanged && info.Title.Length > 0) _brain.React(FaceMood.Happy, 1800);
@@ -703,7 +721,7 @@ public partial class IslandWindow : Window
         {
             _orderKey = key;
             var map = new System.Collections.Generic.Dictionary<string, UIElement>
-            { ["Music"] = ExpMusicSection, ["Sys"] = ExpSysSection, ["Timer"] = ExpTimerSection, ["Clip"] = ExpClipSection };
+            { ["Music"] = ExpMusicSection, ["Weather"] = ExpWeatherSection, ["Sys"] = ExpSysSection, ["Timer"] = ExpTimerSection, ["Clip"] = ExpClipSection };
             ExpStack.Children.Clear();
             foreach (var k in order) if (map.TryGetValue(k, out var el)) ExpStack.Children.Add(el);
         }
@@ -751,6 +769,7 @@ public partial class IslandWindow : Window
         ExpSysSection.Visibility = S.EnableSysInfo ? Visibility.Visible : Visibility.Collapsed;
         ExpTimerSection.Visibility = S.EnableTimer ? Visibility.Visible : Visibility.Collapsed;
         ExpClipSection.Visibility = S.EnableClipboard ? Visibility.Visible : Visibility.Collapsed;
+        UpdateWeatherUi();
         ApplyPanelOrder();
         UpdateMusicUi(); UpdateTimerUi(); UpdateClipUi();
     }
@@ -766,6 +785,7 @@ public partial class IslandWindow : Window
         PlayBtn.Content = m.Playing ? "\uE769" : "\uE768";
         PrevBtn.Opacity = m.CanPrev ? 1 : 0.35; NextBtn.Opacity = m.CanNext ? 1 : 0.35;
         ExpBars.IsActive = m.Playing;
+        UpdateMusicExtras(m);
         UpdateProgress();
     }
 
@@ -778,6 +798,7 @@ public partial class IslandWindow : Window
         ExpProgScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         ExpProgScale.ScaleX = pos.TotalSeconds / len.TotalSeconds;
         ExpPos.Text = Fmt(pos); ExpDur.Text = Fmt(len);
+        UpdateLyric(pos);
     }
 
     void UpdateTimerUi()
@@ -790,29 +811,6 @@ public partial class IslandWindow : Window
     void UpdateClipUi()
     {
         ClipEmpty.Visibility = _clips.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    bool _tempShown = true;
-
-    /// Столбец температуры показывается, только если Windows отдаёт данные датчика.
-    void ApplyTempColumn(bool has)
-    {
-        if (has == _tempShown) return;
-        _tempShown = has;
-        TempPanel.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
-        SysSpacer2.Width = has ? new GridLength(12) : new GridLength(0);
-        SysTempCol.Width = has ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-    }
-
-    void SampleSys()
-    {
-        if (_mode != Mode.Expanded || !S.EnableSysInfo) return;
-        var s = AppServices.SysInfo.Sample();
-        CpuText.Text = $"{s.Cpu:0}%"; RamText.Text = $"{s.Ram:0}% · {s.UsedGb:0.0} ГБ";
-        ApplyTempColumn(s.TempC.HasValue);
-        if (s.TempC is double t) TempText.Text = $"{t:0} °C";
-        SetBar(CpuScale, s.Cpu / 100); SetBar(RamScale, s.Ram / 100);
-        SetBar(TempScale, s.TempC is double t2 ? (t2 - 30) / 70 : 0);
     }
 
     async void Play_Click(object sender, RoutedEventArgs e) => await AppServices.Media.PlayPauseAsync();

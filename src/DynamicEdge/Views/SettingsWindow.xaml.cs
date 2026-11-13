@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -31,13 +32,14 @@ public partial class SettingsWindow : Window
 
         NotifStatus.Text = "Статус: " + AppServices.Notifications.Status;
         PathsText.Text = $"Версия .NET: {Environment.Version}\nУстановка: {(Native.IsPackaged() ? "MSIX" : "обычная (без package identity)")}\nНастройки: {SettingsService.FilePath}\nЛог: {SettingsService.LogPath}";
+        FontBox.ItemsSource = System.Windows.Media.Fonts.SystemFontFamilies.Select(f => f.Source).OrderBy(n => n).ToList();
         FillOrderList();
         Closed += (_, _) => ((App)Application.Current).Island?.ReleaseHold();
         _loading = false;
     }
 
     static readonly System.Collections.Generic.Dictionary<string, string> BlockNames = new()
-    { ["Music"] = "Музыка", ["Sys"] = "Система (CPU, RAM, температура)", ["Timer"] = "Таймер", ["Clip"] = "Буфер обмена" };
+    { ["Music"] = "Музыка", ["Weather"] = "Погода", ["Sys"] = "Мониторинг (CPU, RAM, GPU, диск, сеть)", ["Timer"] = "Таймер", ["Clip"] = "Буфер обмена" };
 
     void FillOrderList(string? select = null)
     {
@@ -74,6 +76,18 @@ public partial class SettingsWindow : Window
         _loading = false;
         SettingsService.NotifyChanged();
     }
+
+    void FontBox_DropDownClosed(object? sender, EventArgs e)
+        => BindingOperations.GetBindingExpression(FontBox, ComboBox.TextProperty)?.UpdateSource();
+
+    void ResetPosition_Click(object sender, RoutedEventArgs e)
+    {
+        var s = SettingsService.Current;
+        s.OffsetX = 0; s.OffsetY = 8; s.Monitor = -1;
+        Rebind();
+    }
+
+    void ClearHistory_Click(object sender, RoutedEventArgs e) => AppServices.History.Clear();
 
     void Mood_Click(object sender, RoutedEventArgs e)
     {

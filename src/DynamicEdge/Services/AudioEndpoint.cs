@@ -153,6 +153,20 @@ public sealed class AudioEndpoint : IDisposable
         catch { }
     }
 
+    /// Относительное изменение громкости (колёсико мыши по капсуле).
+    public void ChangeVolume(float delta)
+    {
+        try
+        {
+            if (_vol == null) return;
+            _vol.GetMasterVolumeLevelScalar(out var v);
+            v = Math.Clamp(v + delta, 0f, 1f);
+            var g = Guid.Empty;
+            _vol.SetMasterVolumeLevelScalar(v, ref g);
+        }
+        catch { }
+    }
+
     /// Пиковый уровень воспроизводимого звука 0..1 (для «танца» глазок).
     public float GetPeak()
     {

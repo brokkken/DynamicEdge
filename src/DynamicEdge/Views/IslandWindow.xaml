@@ -11,6 +11,7 @@
     <Border x:Name="Capsule" Width="120" Height="34" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,6,0,0"
             Background="{DynamicResource CapsuleBg}" BorderBrush="{DynamicResource CapsuleBorder}" BorderThickness="1"
             CornerRadius="17" ClipToBounds="True" RenderTransformOrigin="0.5,0"
+            AllowDrop="True" DragEnter="Capsule_DragEnter" DragOver="Capsule_DragEnter" Drop="Capsule_Drop" MouseWheel="Capsule_Wheel" MouseLeftButtonDown="Capsule_Down" MouseMove="Capsule_Move"
             SizeChanged="Capsule_SizeChanged" MouseLeftButtonUp="Capsule_Click" MouseEnter="Capsule_Enter" MouseLeave="Capsule_Leave">
       <Border.RenderTransform>
         <TransformGroup>
@@ -29,6 +30,7 @@
             <Border x:Name="IdleArt" Width="20" Height="20" CornerRadius="10" Margin="0,0,8,0" Visibility="Collapsed"/>
             <local:Face x:Name="IdleFace" Margin="0,0,8,0" Visibility="Collapsed"/>
             <local:EqBars x:Name="IdleBars" Margin="0,0,8,0" Visibility="Collapsed"/>
+            <StackPanel x:Name="IdleMon" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed"/>
             <TextBlock x:Name="IdleText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
                        MaxWidth="260" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Typography.NumeralAlignment="Tabular" Visibility="Collapsed"/>
           </StackPanel>
@@ -64,91 +66,137 @@
         <!-- ============ EXPANDED ============ -->
         <Grid x:Name="ExpLayer" Width="408" VerticalAlignment="Top" Margin="0,16,0,0" Visibility="Collapsed" Opacity="0">
           <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
-          <StackPanel x:Name="ExpStack">
-            <!-- Музыка -->
-            <Grid x:Name="ExpMusicSection" Margin="0,0,0,12">
-              <Grid x:Name="ExpMusic">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <Border Width="76" Height="76" CornerRadius="14" ClipToBounds="True" Background="{DynamicResource ChipBg}" VerticalAlignment="Top" HorizontalAlignment="Left">
-                  <Grid>
-                    <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource IconFont}" FontSize="30" Foreground="{DynamicResource Fg2Brush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    <Image x:Name="ExpArt" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
-                  </Grid>
-                </Border>
-                <StackPanel Grid.Column="1">
-                  <DockPanel>
-                    <local:EqBars x:Name="ExpBars" DockPanel.Dock="Right" Margin="8,2,0,0" VerticalAlignment="Top"/>
-                    <StackPanel>
-                      <TextBlock x:Name="ExpTitle" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock x:Name="ExpArtist" FontSize="12" Foreground="{DynamicResource Fg2Brush}" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
-                  </DockPanel>
-                  <Grid Margin="0,9,0,0" Height="4">
-                    <Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/>
-                    <Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
-                      <Border.RenderTransform><ScaleTransform x:Name="ExpProgScale" ScaleX="0"/></Border.RenderTransform>
+          <StackPanel>
+            <!-- Вкладки -->
+            <Grid Margin="0,0,0,12">
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="TabHome" Style="{StaticResource ChipBtn}" Margin="0" Content="Главная" Tag="Home" Click="Tab_Click"/>
+                <Button x:Name="TabStats" Style="{StaticResource ChipBtn}" Content="Итоги" Tag="Stats" Click="Tab_Click"/>
+                <Button x:Name="TabShelf" Style="{StaticResource ChipBtn}" Content="Полка" Tag="Shelf" Click="Tab_Click"/>
+              </StackPanel>
+              <Button x:Name="PinBtn" Style="{StaticResource IconBtn}" Width="28" Height="28" FontSize="13" HorizontalAlignment="Right" Content="&#xE718;" Click="Pin_Click"/>
+            </Grid>
+
+            <!-- ГЛАВНАЯ -->
+            <StackPanel x:Name="HomePage">
+              <StackPanel x:Name="ExpStack">
+                <!-- Музыка -->
+                <Grid x:Name="ExpMusicSection" Margin="0,0,0,12">
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <Grid x:Name="ExpMusic">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="ExpArtBox" Width="76" Height="76" CornerRadius="14" ClipToBounds="True" Background="{DynamicResource ChipBg}" VerticalAlignment="Top" HorizontalAlignment="Left"
+                            MouseLeftButtonDown="Art_Down" MouseLeftButtonUp="Art_Up" ToolTip="Двойной клик — пауза, свайп влево/вправо — трек">
+                      <Grid>
+                        <TextBlock Text="&#xE8D6;" FontFamily="{StaticResource IconFont}" FontSize="30" Foreground="{DynamicResource Fg2Brush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Image x:Name="ExpArt" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                      </Grid>
                     </Border>
+                    <StackPanel Grid.Column="1">
+                      <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="8,0,0,0">
+                          <local:EqBars x:Name="ExpBars" Margin="0,5,4,0"/>
+                          <Button x:Name="InfoBtn" Style="{StaticResource IconBtn}" Width="26" Height="26" FontSize="14" Content="&#xE712;" Click="Info_Click" ToolTip="О треке"/>
+                        </StackPanel>
+                        <StackPanel>
+                          <TextBlock x:Name="ExpTitle" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock x:Name="ExpArtist" FontSize="12" Foreground="{DynamicResource Fg2Brush}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                      </DockPanel>
+                      <TextBlock x:Name="ExpLyric" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Height="34" Margin="0,6,0,0" Visibility="Collapsed"/>
+                      <Grid Margin="0,8,0,0" Height="4">
+                        <Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/>
+                        <Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5">
+                          <Border.RenderTransform><ScaleTransform x:Name="ExpProgScale" ScaleX="0"/></Border.RenderTransform>
+                        </Border>
+                      </Grid>
+                      <Grid Margin="0,2,0,0">
+                        <TextBlock x:Name="ExpPos" FontSize="10" Foreground="{DynamicResource Fg2Brush}" Typography.NumeralAlignment="Tabular"/>
+                        <TextBlock x:Name="ExpDur" FontSize="10" Foreground="{DynamicResource Fg2Brush}" HorizontalAlignment="Right" Typography.NumeralAlignment="Tabular"/>
+                      </Grid>
+                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button x:Name="PrevBtn" Style="{StaticResource IconBtn}" Content="&#xE892;" Click="Prev_Click"/>
+                        <Button x:Name="PlayBtn" Style="{StaticResource IconBtn}" Content="&#xE768;" Width="44" Height="44" FontSize="22" Margin="6,0" Click="Play_Click"/>
+                        <Button x:Name="NextBtn" Style="{StaticResource IconBtn}" Content="&#xE893;" Click="Next_Click"/>
+                      </StackPanel>
+                    </StackPanel>
                   </Grid>
-                  <Grid Margin="0,2,0,0">
-                    <TextBlock x:Name="ExpPos" FontSize="10" Foreground="{DynamicResource Fg2Brush}" Typography.NumeralAlignment="Tabular"/>
-                    <TextBlock x:Name="ExpDur" FontSize="10" Foreground="{DynamicResource Fg2Brush}" HorizontalAlignment="Right" Typography.NumeralAlignment="Tabular"/>
-                  </Grid>
-                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="PrevBtn" Style="{StaticResource IconBtn}" Content="&#xE892;" Click="Prev_Click"/>
-                    <Button x:Name="PlayBtn" Style="{StaticResource IconBtn}" Content="&#xE768;" Width="44" Height="44" FontSize="22" Margin="6,0" Click="Play_Click"/>
-                    <Button x:Name="NextBtn" Style="{StaticResource IconBtn}" Content="&#xE893;" Click="Next_Click"/>
+                  <TextBlock x:Name="ExpNoMedia" Text="Сейчас ничего не играет" FontSize="13" Foreground="{DynamicResource Fg2Brush}" HorizontalAlignment="Center" Margin="0,8" Visibility="Collapsed"/>
+                  <Border x:Name="ExpInfo" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource ChipBg}" CornerRadius="12" Padding="12,8" Margin="0,10,0,0">
+                    <StackPanel>
+                      <TextBlock x:Name="InfoAlbum" FontSize="12" Foreground="{DynamicResource FgBrush}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock x:Name="InfoDuration" FontSize="12" Foreground="{DynamicResource Fg2Brush}" Margin="0,2,0,0"/>
+                      <TextBlock x:Name="InfoSource" FontSize="12" Foreground="{DynamicResource Fg2Brush}" Margin="0,2,0,0"/>
+                      <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Style="{StaticResource ChipBtn}" Margin="0" Content="Копировать название" Click="CopyTitle_Click"/>
+                        <Button Style="{StaticResource ChipBtn}" Content="Поделиться" Click="Share_Click"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <!-- Погода -->
+                <Grid x:Name="ExpWeatherSection" Margin="0,0,0,12" Visibility="Collapsed">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <TextBlock x:Name="WeatherEmoji" FontFamily="Segoe UI Emoji" FontSize="28" Margin="0,0,12,0" VerticalAlignment="Center" Foreground="{DynamicResource FgBrush}"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="WeatherTemp" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"/>
+                    <TextBlock x:Name="WeatherDesc" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/>
                   </StackPanel>
+                </Grid>
+
+                <!-- Мониторинг -->
+                <Grid x:Name="ExpSysSection" Margin="0,0,0,12">
+                  <UniformGrid x:Name="MonGrid" Columns="2"/>
+                </Grid>
+
+                <!-- Таймер -->
+                <Grid x:Name="ExpTimerSection" Margin="0,0,0,12">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="ExpTimerText" Text="00:00" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Typography.NumeralAlignment="Tabular"/>
+                    <TextBlock x:Name="ExpTimerLabel" Text="Таймер не запущен" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel x:Name="PresetHost" Orientation="Horizontal"/>
+                    <Button Style="{StaticResource ChipBtn}" Click="Stopwatch_Click" ToolTip="Секундомер"><TextBlock Text="&#xE916;" FontFamily="{StaticResource IconFont}"/></Button>
+                    <Button Style="{StaticResource ChipBtn}" Click="TimerStop_Click" ToolTip="Сбросить"><TextBlock Text="&#xE71A;" FontFamily="{StaticResource IconFont}"/></Button>
+                  </StackPanel>
+                </Grid>
+
+                <!-- Буфер обмена -->
+                <StackPanel x:Name="ExpClipSection">
+                  <TextBlock Text="Буфер обмена" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/>
+                  <TextBlock x:Name="ClipEmpty" Text="Пусто — скопируйте текст" FontSize="12" Foreground="{DynamicResource Fg2Brush}" Margin="0,4,0,0"/>
+                  <ItemsControl x:Name="ClipList">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Button Style="{StaticResource ChipBtn}" Margin="0,4,0,0" HorizontalContentAlignment="Left" Click="ClipItem_Click" ToolTip="{Binding Full}">
+                          <TextBlock Text="{Binding Preview}" TextTrimming="CharacterEllipsis"/>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+
+            <!-- ИТОГИ -->
+            <StackPanel x:Name="StatsPage" Visibility="Collapsed">
+              <StackPanel x:Name="StatsHost"/>
+            </StackPanel>
+
+            <!-- ПОЛКА -->
+            <StackPanel x:Name="ShelfPage" Visibility="Collapsed">
+              <Grid Margin="0,0,0,8">
+                <TextBlock Text="Клик — открыть · ПКМ — удалить" FontSize="11" Foreground="{DynamicResource Fg2Brush}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                  <Button Style="{StaticResource ChipBtn}" Content="+ Из буфера" Click="ShelfAddClip_Click"/>
+                  <Button Style="{StaticResource ChipBtn}" Content="Очистить" Click="ShelfClear_Click"/>
                 </StackPanel>
               </Grid>
-              <TextBlock x:Name="ExpNoMedia" Text="Сейчас ничего не играет" FontSize="13" Foreground="{DynamicResource Fg2Brush}" HorizontalAlignment="Center" Margin="0,8" Visibility="Collapsed"/>
-            </Grid>
-
-            <!-- Системная информация -->
-            <Grid x:Name="ExpSysSection" Margin="0,0,0,12">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="SysSpacer2" Width="12"/><ColumnDefinition x:Name="SysTempCol" Width="*"/>
-              </Grid.ColumnDefinitions>
-              <StackPanel>
-                <DockPanel><TextBlock Text="CPU" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/><TextBlock x:Name="CpuText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" HorizontalAlignment="Right"/></DockPanel>
-                <Grid Height="4" Margin="0,4,0,0"><Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/><Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5"><Border.RenderTransform><ScaleTransform x:Name="CpuScale" ScaleX="0"/></Border.RenderTransform></Border></Grid>
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-                <DockPanel><TextBlock Text="RAM" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/><TextBlock x:Name="RamText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" HorizontalAlignment="Right"/></DockPanel>
-                <Grid Height="4" Margin="0,4,0,0"><Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/><Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5"><Border.RenderTransform><ScaleTransform x:Name="RamScale" ScaleX="0"/></Border.RenderTransform></Border></Grid>
-              </StackPanel>
-              <StackPanel x:Name="TempPanel" Grid.Column="4">
-                <DockPanel><TextBlock Text="Темп." FontSize="11" Foreground="{DynamicResource Fg2Brush}"/><TextBlock x:Name="TempText" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" HorizontalAlignment="Right"/></DockPanel>
-                <Grid Height="4" Margin="0,4,0,0"><Border CornerRadius="2" Background="{DynamicResource TrackBrush}"/><Border CornerRadius="2" Background="{DynamicResource AccentBrush}" RenderTransformOrigin="0,0.5"><Border.RenderTransform><ScaleTransform x:Name="TempScale" ScaleX="0"/></Border.RenderTransform></Border></Grid>
-              </StackPanel>
-            </Grid>
-
-            <!-- Таймер -->
-            <Grid x:Name="ExpTimerSection" Margin="0,0,0,12">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-              <StackPanel VerticalAlignment="Center">
-                <TextBlock x:Name="ExpTimerText" Text="00:00" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}" Typography.NumeralAlignment="Tabular"/>
-                <TextBlock x:Name="ExpTimerLabel" Text="Таймер не запущен" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/>
-              </StackPanel>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <StackPanel x:Name="PresetHost" Orientation="Horizontal"/>
-                <Button Style="{StaticResource ChipBtn}" Click="Stopwatch_Click" ToolTip="Секундомер"><TextBlock Text="&#xE916;" FontFamily="{StaticResource IconFont}"/></Button>
-                <Button Style="{StaticResource ChipBtn}" Click="TimerStop_Click" ToolTip="Сбросить"><TextBlock Text="&#xE71A;" FontFamily="{StaticResource IconFont}"/></Button>
-              </StackPanel>
-            </Grid>
-
-            <!-- Буфер обмена -->
-            <StackPanel x:Name="ExpClipSection">
-              <TextBlock Text="Буфер обмена" FontSize="11" Foreground="{DynamicResource Fg2Brush}"/>
-              <TextBlock x:Name="ClipEmpty" Text="Пусто — скопируйте текст" FontSize="12" Foreground="{DynamicResource Fg2Brush}" Margin="0,4,0,0"/>
-              <ItemsControl x:Name="ClipList">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Button Style="{StaticResource ChipBtn}" Margin="0,4,0,0" HorizontalContentAlignment="Left" Click="ClipItem_Click" ToolTip="{Binding Full}">
-                      <TextBlock Text="{Binding Preview}" TextTrimming="CharacterEllipsis"/>
-                    </Button>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+              <TextBlock x:Name="ShelfEmpty" Text="Перетащите ссылку из браузера на капсулу или нажмите «+ Из буфера»" FontSize="12" Foreground="{DynamicResource Fg2Brush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+              <WrapPanel x:Name="ShelfHost"/>
             </StackPanel>
           </StackPanel>
         </Grid>

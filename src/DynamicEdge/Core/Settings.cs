@@ -52,7 +52,7 @@ public sealed class AppSettings
     public bool IdleShowTimer { get; set; } = true;
     public bool IdleShowBattery { get; set; } = false;
     public bool IdleShowClock { get; set; } = false;
-    public string PanelOrder { get; set; } = "Music,Sys,Timer,Clip";
+    public string PanelOrder { get; set; } = "Music,Weather,Sys,Timer,Clip";
     public string TimerPresets { get; set; } = "1, 5, 10, 25";
 
     // --- Глазки ---
@@ -63,6 +63,21 @@ public sealed class AppSettings
     public int FaceSleepMinutes { get; set; } = 3;       // 0 = никогда не засыпают
     public double FaceSize { get; set; } = 1.0;
     public string FaceColor { get; set; } = "White";     // White | Accent | Cyan | Green | Pink | Orange
+
+    // --- Закрепление, игры, шрифт ---
+    public bool Pinned { get; set; } = true;             // false = капсулу можно перетаскивать
+    public string GameMode { get; set; } = "Hide";       // Hide | Monitor | Show — поведение в полноэкранных играх
+    public string FontName { get; set; } = "Segoe UI Variable Text";
+
+    // --- Мониторинг, погода, раскладка, сервисы ---
+    public bool IdleShowMonitor { get; set; } = false;
+    public bool IdleShowWeather { get; set; } = false;
+    public bool IdleShowLayout { get; set; } = false;
+    public bool WeatherEnabled { get; set; } = false;
+    public string WeatherCity { get; set; } = "";
+    public bool LyricsEnabled { get; set; } = true;
+    public bool HistoryEnabled { get; set; } = true;
+    public List<string> ShelfLinks { get; set; } = new();
 
     public string HotkeyToggle { get; set; } = "Ctrl+Alt+D";
     public string HotkeyHide { get; set; } = "Ctrl+Alt+H";
@@ -75,7 +90,7 @@ public static class SettingsService
     public static string FilePath => Path.Combine(Dir, "settings.json");
     public static string LogPath => Path.Combine(Dir, "log.txt");
     public static AppSettings Current { get; private set; } = new();
-    public static readonly string[] DefaultPanelOrder = { "Music", "Sys", "Timer", "Clip" };
+    public static readonly string[] DefaultPanelOrder = { "Music", "Weather", "Sys", "Timer", "Clip" };
     public static string[] PanelOrderList { get; private set; } = DefaultPanelOrder;
     public static int[] PresetList { get; private set; } = { 1, 5, 10, 25 };
     public static event Action? Changed;
@@ -102,10 +117,15 @@ public static class SettingsService
         s.NotificationSeconds = Math.Clamp(s.NotificationSeconds, 2, 30);
         s.LowBatteryPercent = Math.Clamp(s.LowBatteryPercent, 5, 50);
         s.DefaultTimerMinutes = Math.Clamp(s.DefaultTimerMinutes, 1, 600);
-        s.OffsetY = Math.Clamp(s.OffsetY, -6, 400);
-        s.OffsetX = Math.Clamp(s.OffsetX, -2000, 2000);
+        s.OffsetY = Math.Clamp(s.OffsetY, -6, 4000);
+        s.OffsetX = Math.Clamp(s.OffsetX, -4000, 4000);
         if (s.Theme != "Light" && s.Theme != "System") s.Theme = "Dark";
 
+        if (!s.HideInFullscreen && s.GameMode == "Hide") { s.GameMode = "Show"; s.HideInFullscreen = true; }   // миграция старой настройки
+        if (s.GameMode != "Monitor" && s.GameMode != "Show") s.GameMode = "Hide";
+        if (string.IsNullOrWhiteSpace(s.FontName)) s.FontName = "Segoe UI Variable Text";
+        s.ShelfLinks ??= new List<string>();
+        s.WeatherCity ??= "";
         s.CornerRadiusMax = Math.Clamp(s.CornerRadiusMax, 4, 40);
         s.BorderWidth = Math.Clamp(s.BorderWidth, 0, 3);
         s.ShadowStrength = Math.Clamp(s.ShadowStrength, 0, 0.8);

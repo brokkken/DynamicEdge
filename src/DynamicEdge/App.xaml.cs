@@ -83,6 +83,7 @@ public partial class App : Application
         try
         {
             SettingsService.Save();
+            AppServices.History.Flush();
             if (_tray != null) { _tray.Visible = false; _tray.Dispose(); }
             AppServices.Msg?.Dispose();
             AppServices.Output?.Dispose();

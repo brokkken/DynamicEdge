@@ -7,6 +7,10 @@ public static class AppServices
     public static BatteryService Battery { get; } = new();
     public static SysInfoService SysInfo { get; } = new();
     public static TimerService Timer { get; } = new();
+    public static MonitorService Monitor { get; } = new(SysInfo);
+    public static LyricsService Lyrics { get; } = new();
+    public static HistoryService History { get; } = new();
+    public static WeatherService Weather { get; } = new();
     public static MicUsageService MicUsage { get; } = new();
     public static MessageWindow Msg { get; set; } = null!;
     public static AudioEndpoint Output { get; set; } = null!;
